@@ -10,8 +10,11 @@ Auditable:
   - Drop reasons are tallied and reported continuously.
 
 Resumable:
-  - A write-ahead log (.processed_ids) lists every osm_id written.
-  - On re-run, rows whose id is in the WAL are skipped.
+  - A write-ahead log (.seen_ids) lists every osm_id EVER considered
+    (written OR dropped). On re-run, those ids are skipped entirely
+    - we don't re-evaluate the same OSM object twice. This is critical
+    on Europe (32GB, 200M+ objects): without the seen set, a resume
+    would re-evaluate 200M objects just to write 10k more.
   - Stopping (Ctrl-C, --limit N, kill) and restarting produces the
     same final file. The .progress.json is preserved across restarts.
 
@@ -45,7 +48,7 @@ MAX_AREA_KM2 = 100.0
 PROGRESS_INTERVAL_S = 15.0
 FIRST_PROGRESS_AFTER = 100
 
-WAL_SUFFIX = ".processed_ids"
+WAL_SUFFIX = ".seen_ids"
 PROGRESS_SUFFIX = ".progress.json"
 LOG_SUFFIX = ".run.json"
 
@@ -160,20 +163,22 @@ def extract(
     progress_path = out_path.with_suffix(out_path.suffix + PROGRESS_SUFFIX)
     log_path = out_path.with_suffix(out_path.suffix + LOG_SUFFIX)
 
-    # Load the WAL (set of osm_ids already written) for resumability.
+    # Load the seen set (every osm_id ever considered on any prior run).
+    # If an id is here, skip it entirely - re-evaluating it would
+    # double-count drops on resume and waste CPU on 200M+ object PBFs.
     # Drops are NOT loaded from a prior run: per-OSM-object counts would
-    # double on resume.
-    processed_ids: set[int] = set()
+    # double on resume (we've already counted them in a prior run).
+    seen_ids: set[int] = set()
     if wal_path.exists():
         with wal_path.open() as f:
             for line in f:
                 line = line.strip()
                 if line:
                     try:
-                        processed_ids.add(int(line))
+                        seen_ids.add(int(line))
                     except ValueError:
                         pass
-        _log(f"resuming: {len(processed_ids):,} polygons already in WAL")
+        _log(f"resuming: {len(seen_ids):,} OSM objects already seen (skipped)")
 
     drops: dict[str, int] = {}
 
@@ -222,7 +227,7 @@ def extract(
     with out_path.open("a") as fout, wal_path.open("a") as fwal:
         for obj in osmium.FileProcessor(str(pbf_path)).with_areas():
             osm_id = obj.id
-            if osm_id in processed_ids:
+            if osm_id in seen_ids:
                 n_skipped += 1
                 continue
 
@@ -231,12 +236,15 @@ def extract(
                 break
 
             n = _record(cast(osmium.osm.OSMObject, obj), fout, drops)
+            # Mark the osm_id as seen regardless of whether it was
+            # accepted (written) or dropped. This is what makes resume
+            # truly skip work: we never re-evaluate the same id.
+            fwal.write(f"{osm_id}\n")
+            fwal.flush()
             if n > 0:
-                fwal.write(f"{osm_id}\n")
-                fwal.flush()
                 fout.flush()
-                processed_ids.add(osm_id)
                 n_written += 1
+            seen_ids.add(osm_id)
 
             maybe_write_progress()
 
@@ -250,8 +258,12 @@ def extract(
             f"in {elapsed:.0f}s. Run again (no --limit, or higher) to resume."
         )
     else:
-        _log(f"done: written={n_written:,} skipped={n_skipped:,} in {elapsed:.0f}s")
+        _log(
+            f"done: written={n_written:,} skipped={n_skipped:,} "
+            f"in {elapsed:.0f}s"
+        )
     _log(f"  drops: {drops}")
+    _log(f"  total osm ids seen: {len(seen_ids):,}")
     _log(f"  final rss={_rss_mb():.0f}MB")
 
     # Final run log.
@@ -271,6 +283,7 @@ def extract(
         "limit": limit,
         "limit_reached": hit_limit,
         "drops": drops,
+        "total_osm_ids_seen": len(seen_ids),
         "peak_rss_mb": round(_rss_mb(), 1),
     }
     log_path.write_text(json.dumps(log_data, indent=2))
