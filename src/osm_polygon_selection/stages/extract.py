@@ -7,7 +7,7 @@ import shapely
 import shapely.wkt
 from shapely.validation import make_valid
 
-from osm_polygon_selection.geometry_utils import area_km2, is_polygon
+from osm_polygon_selection.core.geometry_utils import area_km2, is_polygon
 
 MIN_AREA_KM2 = 0.1
 MAX_AREA_KM2 = 100.0

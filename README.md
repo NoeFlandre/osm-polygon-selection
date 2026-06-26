@@ -28,11 +28,14 @@ scripts/visualize.py data/processed/lichchtenstein/03_classified.jsonl out.html
 
 ```
 src/osm_polygon_selection/    library modules
-  geometry_utils.py           CRS / area / centroid helpers
-  extract.py                  PBF streaming (osmium)
-  whitelist.py                OSM tag whitelist from osm-stats
-  filter_by_whitelist.py      tag-intersection filter
-  classify.py                 continent (Natural Earth) + size bin
+  core/                       pipeline-agnostic primitives
+    geometry_utils.py           CRS / area / centroid helpers
+    jsonl_utils.py              shared JSONL streaming
+  stages/                     one module per pipeline stage
+    extract.py                  Stage 0: PBF streaming (osmium)
+    whitelist.py                Stage 1: OSM tag whitelist from osm-stats
+    filter_by_whitelist.py      Stage 2: tag-intersection filter
+    classify.py                 Stage 3: continent (Natural Earth) + size bin
 
 scripts/                      CLI entry points (one per stage)
   stage0_extract.py
@@ -41,7 +44,14 @@ scripts/                      CLI entry points (one per stage)
   stage3_classify.py
   visualize.py                render JSONL to interactive HTML map
 
-tests/                        pytest suite (40 tests)
+tests/                        pytest suite (46 tests)
+  core/                       tests for primitives
+    test_geometry_utils.py
+    test_jsonl_utils.py
+  stages/                     tests for stage modules
+    test_classify.py
+    test_filter_by_whitelist.py
+    test_whitelist.py
 
 data/
   raw/                        downloaded PBFs (gitignored)

@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-from osm_polygon_selection.filter_by_whitelist import filter_polygons
+from osm_polygon_selection.stages.filter_by_whitelist import filter_polygons
 
 
 @pytest.fixture

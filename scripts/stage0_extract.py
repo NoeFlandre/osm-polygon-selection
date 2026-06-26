@@ -3,7 +3,7 @@
 import argparse
 from pathlib import Path
 
-from osm_polygon_selection.extract import extract
+from osm_polygon_selection.stages.extract import extract
 
 
 def main() -> None:

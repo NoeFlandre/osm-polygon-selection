@@ -3,7 +3,7 @@
 import json
 from pathlib import Path
 
-from osm_polygon_selection.jsonl_utils import stream_jsonl
+from osm_polygon_selection.core.jsonl_utils import stream_jsonl
 
 
 def _write_rows(path: Path, rows: list[dict]) -> None:

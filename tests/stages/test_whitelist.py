@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-from osm_polygon_selection.whitelist import (
+from osm_polygon_selection.stages.whitelist import (
     KEEP_LABEL,
     NOISE_CLUSTER_ID,
     NOISE_RESCUE_THRESHOLD,

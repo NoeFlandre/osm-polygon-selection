@@ -7,7 +7,7 @@ import geopandas as gpd  # type: ignore[import-untyped]
 import pytest
 from shapely.geometry import Point, Polygon
 
-from osm_polygon_selection.classify import (
+from osm_polygon_selection.stages.classify import (
     continent_of,
     load_countries,
     size_bin,

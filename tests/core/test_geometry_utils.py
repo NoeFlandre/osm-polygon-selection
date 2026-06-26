@@ -3,7 +3,7 @@
 import pytest
 from shapely.geometry import LineString, MultiPolygon, Point, Polygon
 
-from osm_polygon_selection.geometry_utils import area_km2, centroid_lonlat, is_polygon
+from osm_polygon_selection.core.geometry_utils import area_km2, centroid_lonlat, is_polygon
 
 
 # Test fixtures

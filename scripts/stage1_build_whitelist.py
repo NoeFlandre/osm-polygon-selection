@@ -3,7 +3,7 @@
 import argparse
 from pathlib import Path
 
-from osm_polygon_selection.whitelist import load_whitelist
+from osm_polygon_selection.stages.whitelist import load_whitelist
 
 
 def main() -> None:

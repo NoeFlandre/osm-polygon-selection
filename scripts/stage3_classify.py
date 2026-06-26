@@ -3,7 +3,7 @@
 import argparse
 from pathlib import Path
 
-from osm_polygon_selection.classify import classify_jsonl, size_bin
+from osm_polygon_selection.stages.classify import classify_jsonl, size_bin
 
 
 def main() -> None:

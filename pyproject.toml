@@ -25,6 +25,12 @@ packages = ["src/osm_polygon_selection"]
 [tool.pytest.ini_options]
 pythonpath = ["src"]
 testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_functions = ["test_*"]
+
+
+[tool.coverage.run]
+source = ["src/osm_polygon_selection"]
 
 [tool.mypy]
 python_version = "3.12"

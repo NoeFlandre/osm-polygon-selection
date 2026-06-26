@@ -10,7 +10,7 @@ import geopandas as gpd  # type: ignore[import-untyped]  # stubs unavailable
 from shapely.geometry import Point
 from shapely.strtree import STRtree
 
-from osm_polygon_selection.jsonl_utils import stream_jsonl
+from osm_polygon_selection.core.jsonl_utils import stream_jsonl
 
 # Sentinel for polygons whose centroid does not fall in any country shape
 # (typically ocean polygons). Downstream stages can drop or bucket these.
