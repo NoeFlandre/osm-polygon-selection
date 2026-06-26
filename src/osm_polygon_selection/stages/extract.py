@@ -195,13 +195,31 @@ def extract(
     n_written = 0
     n_skipped = 0
     last_progress = time.time()
+    last_progress_count = 0
     hit_limit = False
+    wal_buffer: list[str] = []
+    WAL_BATCH = 10_000  # flush WAL every N writes (~10k IDs = ~100KB buffered)
+
+    def flush_wal() -> None:
+        if wal_buffer:
+            fwal.write("".join(wal_buffer))
+            fwal.flush()
+            wal_buffer.clear()
 
     def maybe_write_progress(force: bool = False) -> None:
-        nonlocal last_progress
+        """Write progress file if enough time has passed OR enough objects
+        have been processed. The time check is throttled by the count
+        check: we only call this function every N objects, so the time
+        check doesn't fire on every single drop (would be 200M+ atomic
+        writes for Europe and destroy I/O).
+        """
+        nonlocal last_progress, last_progress_count
         now = time.time()
+        # Throttle: only consider time check every 100k objects.
+        if last_progress_count > 0 and n_written + n_skipped - last_progress_count < 100_000:
+            return
         due_by_time = now - last_progress >= PROGRESS_INTERVAL_S
-        due_by_count = n_written > 0 and n_written % FIRST_PROGRESS_AFTER == 0
+        due_by_count = n_written > 0 and n_written - last_progress_count >= FIRST_PROGRESS_AFTER
         if not (force or due_by_time or due_by_count):
             return
         _write_progress(
@@ -223,6 +241,7 @@ def extract(
             f"rss={_rss_mb():.0f}MB"
         )
         last_progress = now
+        last_progress_count = n_written + n_skipped
 
     with out_path.open("a") as fout, wal_path.open("a") as fwal:
         for obj in osmium.FileProcessor(str(pbf_path)).with_areas():
@@ -239,14 +258,20 @@ def extract(
             # Mark the osm_id as seen regardless of whether it was
             # accepted (written) or dropped. This is what makes resume
             # truly skip work: we never re-evaluate the same id.
-            fwal.write(f"{osm_id}\n")
-            fwal.flush()
+            # WAL writes are batched (every WAL_BATCH IDs) to avoid
+            # doing 200M+ disk syncs on a 32GB PBF.
+            wal_buffer.append(f"{osm_id}\n")
+            if len(wal_buffer) >= WAL_BATCH:
+                flush_wal()
             if n > 0:
                 fout.flush()
                 n_written += 1
             seen_ids.add(osm_id)
 
             maybe_write_progress()
+
+        # Flush any remaining WAL buffer at end of iteration.
+        flush_wal()
 
     # Final progress update.
     maybe_write_progress(force=True)
