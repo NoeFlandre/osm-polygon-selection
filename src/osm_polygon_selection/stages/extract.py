@@ -1,20 +1,35 @@
 """Stage 0: stream a PBF file, write closed-way + multipolygon polygons to JSONL.
 
-Streams one polygon at a time and writes immediately, so memory use stays
-flat regardless of PBF size (Europe 15GB -> ~50MB RAM, planet 70GB ->
-same). This is essential: an in-memory accumulator would OOM on 8GB
-machines at continent scale.
+Auditable, resumable, observable, and stoppable.
 
-Filters applied per polygon (drop early, no allocation):
-  - Must be a real area (closed way OR multipolygon relation)
-  - Must be a Polygon or MultiPolygon (drop degenerate cases)
-  - Area in [MIN_AREA_KM2, MAX_AREA_KM2]
+Auditable:
+  - A live progress file (.progress.json) is rewritten every tick with
+    current counts, drop reasons, throughput, memory, elapsed time.
+    Inspectable at any time: cat .progress.json
+  - A run log (.run.json) is finalized at the end with full metadata.
+  - Drop reasons are tallied and reported continuously.
 
-What gets emitted per row: osm_id, osm_type, geometry (WKT), centroid
-[lon, lat], area_km2, tags (list of "key=value" strings).
+Resumable:
+  - A write-ahead log (.processed_ids) lists every osm_id written.
+  - On re-run, rows whose id is in the WAL are skipped.
+  - Stopping (Ctrl-C, --limit N, kill) and restarting produces the
+    same final file. The .progress.json is preserved across restarts.
+
+Stoppable:
+  - --limit N caps the number of NEW polygons written in this run.
+  - Run is paused, not killed: the .progress.json shows the state.
+  - Resume: just re-run with no --limit (or a higher one).
+
+Observable:
+  - A progress line is logged to stderr every PROGRESS_INTERVAL_S.
+  - .progress.json is rewritten every FIRST_PROGRESS_AFTER writes or
+    every PROGRESS_INTERVAL_S, whichever comes first.
 """
 
 import json
+import resource
+import time
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import cast
 
@@ -27,30 +42,84 @@ from osm_polygon_selection.core.geometry_utils import area_km2, is_polygon
 MIN_AREA_KM2 = 0.1
 MAX_AREA_KM2 = 100.0
 
+PROGRESS_INTERVAL_S = 15.0
+FIRST_PROGRESS_AFTER = 100
+
+WAL_SUFFIX = ".processed_ids"
+PROGRESS_SUFFIX = ".progress.json"
+LOG_SUFFIX = ".run.json"
+
 _factory = osmium.geom.WKTFactory()
 
 
-def _record(area: osmium.osm.OSMObject, fout) -> int:
-    """Process one OSM object. Write JSON line if it survives all filters.
+def _rss_mb() -> float:
+    """Current process peak RSS in MB (macOS reports bytes, Linux reports KB)."""
+    return resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 1_000_000.0
 
-    Returns 1 if a row was written, 0 otherwise.
-    """
+
+def _log(msg: str) -> None:
+    """Log to stderr with timestamp."""
+    ts = datetime.now(tz=timezone.utc).strftime("%H:%M:%S")
+    print(f"[{ts}] {msg}", flush=True)
+
+
+def _write_progress(
+    progress_path: Path,
+    *,
+    pbf_size: int,
+    start_time: float,
+    n_written: int,
+    n_skipped: int,
+    drops: dict[str, int],
+) -> None:
+    """Atomically rewrite .progress.json with current state."""
+    elapsed = time.time() - start_time
+    rate = n_written / elapsed if elapsed > 0 else 0.0
+    payload = {
+        "pbf_size_bytes": pbf_size,
+        "elapsed_seconds": round(elapsed, 1),
+        "polygons_written": n_written,
+        "polygons_skipped_resume": n_skipped,
+        "drops": dict(drops),
+        "drop_total": sum(drops.values()),
+        "throughput_pol_per_sec": round(rate, 1),
+        "rss_mb": round(_rss_mb(), 1),
+        "last_update_utc": datetime.now(tz=timezone.utc).isoformat(),
+    }
+    tmp = progress_path.with_suffix(progress_path.suffix + ".tmp")
+    tmp.write_text(json.dumps(payload, indent=2))
+    tmp.replace(progress_path)
+
+
+def _record(
+    area: osmium.osm.OSMObject,
+    fout,
+    drops: dict[str, int],
+) -> int:
+    """Process one OSM object. Returns 1 if a row was written."""
     if not area.is_area():
+        drops["not_an_area"] = drops.get("not_an_area", 0) + 1
         return 0
     area_area = cast(osmium.osm.Area, area)
     try:
         wkt = _factory.create_multipolygon(area_area)
         geom = shapely.wkt.loads(wkt)
     except Exception:
+        drops["wkt_conversion_failed"] = drops.get("wkt_conversion_failed", 0) + 1
         return 0
 
     if not geom.is_valid:
         geom = make_valid(geom)
     if not is_polygon(geom):
+        drops["not_polygon"] = drops.get("not_polygon", 0) + 1
         return 0
 
     a = area_km2(geom)
-    if a > MAX_AREA_KM2 or a < MIN_AREA_KM2:
+    if a < MIN_AREA_KM2:
+        drops["too_small"] = drops.get("too_small", 0) + 1
+        return 0
+    if a > MAX_AREA_KM2:
+        drops["too_large"] = drops.get("too_large", 0) + 1
         return 0
 
     c = geom.centroid
@@ -67,14 +136,143 @@ def _record(area: osmium.osm.OSMObject, fout) -> int:
     return 1
 
 
-def extract(pbf_path: Path, out_path: Path) -> int:
-    """Stream a PBF, write each polygon to JSONL as it's parsed.
+def extract(
+    pbf_path: Path,
+    out_path: Path,
+    *,
+    limit: int | None = None,
+) -> int:
+    """Stream a PBF, write each polygon to JSONL. Resumable + stoppable.
 
-    Returns the number of polygons written.
+    Args:
+        pbf_path: input .osm.pbf file.
+        out_path: output .jsonl file (created or appended to).
+        limit: stop after this many NEW polygons in this run.
+            None = run to completion. Used to slice a long extraction
+            into manageable chunks (e.g. 10000 at a time on Europe).
+
+    Returns:
+        Number of polygons written in THIS run (excludes already-WAL'd
+        ones from prior runs).
     """
     out_path.parent.mkdir(parents=True, exist_ok=True)
-    n = 0
-    with out_path.open("w") as fout:
+    wal_path = out_path.with_suffix(out_path.suffix + WAL_SUFFIX)
+    progress_path = out_path.with_suffix(out_path.suffix + PROGRESS_SUFFIX)
+    log_path = out_path.with_suffix(out_path.suffix + LOG_SUFFIX)
+
+    # Load the WAL (set of osm_ids already written) for resumability.
+    # Drops are NOT loaded from a prior run: per-OSM-object counts would
+    # double on resume.
+    processed_ids: set[int] = set()
+    if wal_path.exists():
+        with wal_path.open() as f:
+            for line in f:
+                line = line.strip()
+                if line:
+                    try:
+                        processed_ids.add(int(line))
+                    except ValueError:
+                        pass
+        _log(f"resuming: {len(processed_ids):,} polygons already in WAL")
+
+    drops: dict[str, int] = {}
+
+    pbf_size = pbf_path.stat().st_size if pbf_path.exists() else 0
+    start_time = time.time()
+    _log(f"start extract pbf={pbf_path} size={pbf_size / 1e9:.2f}GB")
+    _log(f"  output={out_path}")
+    _log(f"  wal={wal_path}")
+    _log(f"  progress={progress_path}")
+    _log(f"  log={log_path}")
+    _log(f"  limit={limit if limit else 'none'}")
+    _log(f"  rss={_rss_mb():.0f}MB")
+
+    n_written = 0
+    n_skipped = 0
+    last_progress = time.time()
+    hit_limit = False
+
+    def maybe_write_progress(force: bool = False) -> None:
+        nonlocal last_progress
+        now = time.time()
+        due_by_time = now - last_progress >= PROGRESS_INTERVAL_S
+        due_by_count = n_written > 0 and n_written % FIRST_PROGRESS_AFTER == 0
+        if not (force or due_by_time or due_by_count):
+            return
+        _write_progress(
+            progress_path,
+            pbf_size=pbf_size,
+            start_time=start_time,
+            n_written=n_written,
+            n_skipped=n_skipped,
+            drops=drops,
+        )
+        elapsed = now - start_time
+        rate = n_written / elapsed if elapsed > 0 else 0.0
+        _log(
+            f"  progress: written={n_written:,} "
+            f"skipped={n_skipped:,} "
+            f"drops={sum(drops.values()):,} "
+            f"elapsed={elapsed:.0f}s "
+            f"rate={rate:.0f} pol/s "
+            f"rss={_rss_mb():.0f}MB"
+        )
+        last_progress = now
+
+    with out_path.open("a") as fout, wal_path.open("a") as fwal:
         for obj in osmium.FileProcessor(str(pbf_path)).with_areas():
-            n += _record(cast(osmium.osm.OSMObject, obj), fout)
-    return n
+            osm_id = obj.id
+            if osm_id in processed_ids:
+                n_skipped += 1
+                continue
+
+            if limit is not None and n_written >= limit:
+                hit_limit = True
+                break
+
+            n = _record(cast(osmium.osm.OSMObject, obj), fout, drops)
+            if n > 0:
+                fwal.write(f"{osm_id}\n")
+                fwal.flush()
+                fout.flush()
+                processed_ids.add(osm_id)
+                n_written += 1
+
+            maybe_write_progress()
+
+    # Final progress update.
+    maybe_write_progress(force=True)
+
+    elapsed = time.time() - start_time
+    if hit_limit:
+        _log(
+            f"limit reached: written={n_written:,} of limit={limit:,} "
+            f"in {elapsed:.0f}s. Run again (no --limit, or higher) to resume."
+        )
+    else:
+        _log(f"done: written={n_written:,} skipped={n_skipped:,} in {elapsed:.0f}s")
+    _log(f"  drops: {drops}")
+    _log(f"  final rss={_rss_mb():.0f}MB")
+
+    # Final run log.
+    log_data = {
+        "pbf_path": str(pbf_path),
+        "pbf_size_bytes": pbf_size,
+        "output_path": str(out_path),
+        "wal_path": str(wal_path),
+        "progress_path": str(progress_path),
+        "start_time_utc": datetime.fromtimestamp(
+            start_time, tz=timezone.utc,
+        ).isoformat(),
+        "end_time_utc": datetime.now(tz=timezone.utc).isoformat(),
+        "elapsed_seconds": elapsed,
+        "polygons_written": n_written,
+        "polygons_skipped_resume": n_skipped,
+        "limit": limit,
+        "limit_reached": hit_limit,
+        "drops": drops,
+        "peak_rss_mb": round(_rss_mb(), 1),
+    }
+    log_path.write_text(json.dumps(log_data, indent=2))
+    _log(f"wrote run log to {log_path}")
+    return n_written
