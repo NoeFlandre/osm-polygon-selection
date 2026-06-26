@@ -19,3 +19,6 @@ data/
 .DS_Store
 .vscode/
 .idea/
+
+# Local-only skills — never pushed to remote
+docs/skills/
