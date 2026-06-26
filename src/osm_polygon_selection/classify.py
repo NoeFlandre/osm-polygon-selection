@@ -15,6 +15,21 @@ from shapely.strtree import STRtree
 # (typically ocean polygons). Downstream stages can drop or bucket these.
 OCEAN_LABEL = None
 
+# Size bin upper bounds (km²), in ascending order. The number of bounds
+# is one less than the number of bins. The last bin is open-ended.
+SIZE_BIN_BOUNDS_KM2: list[float] = [0.1, 1.0, 10.0]
+
+# Bin names, ordered from smallest to largest.
+SIZE_BIN_NAMES: list[str] = ["tiny", "small", "medium", "large"]
+
+
+def size_bin(area_km2: float) -> str:
+    """Map an area in km² to a size bin name."""
+    for upper, name in zip(SIZE_BIN_BOUNDS_KM2, SIZE_BIN_NAMES):
+        if area_km2 < upper:
+            return name
+    return SIZE_BIN_NAMES[-1]
+
 
 def continent_of(
     point: Point,
@@ -54,6 +69,7 @@ def classify_jsonl(
             row["continent"] = continent_of(
                 Point(lon, lat), tree, countries_geom, countries_continent,
             )
+            row["size_bin"] = size_bin(row["area_km2"])
             fout.write(json.dumps(row) + "\n")
             n += 1
     return n
