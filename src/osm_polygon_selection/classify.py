@@ -7,7 +7,7 @@ labels) and a Shapely STRtree for fast point-in-polygon queries.
 import json
 from pathlib import Path
 
-import geopandas as gpd
+import geopandas as gpd  # type: ignore[import-untyped]  # stubs unavailable
 from shapely.geometry import Point
 from shapely.strtree import STRtree
 

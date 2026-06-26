@@ -52,6 +52,8 @@ def _load_kept_base_keys(osm_stats_root: Path) -> set[str]:
     ]:
         path = osm_stats_root / subdir / families_name
         df = pd.read_excel(path)
+        if df.empty or "keep" not in df.columns:
+            continue
         kept.update(df.loc[df["keep"] == KEEP_LABEL, "base_key"].tolist())
     return kept
 
@@ -68,13 +70,19 @@ def _load_tag_strings(
     """
     path = osm_stats_root / subdir / memberships_name
     df = pd.read_csv(path)
-    df = df[df["base_key"].isin(kept_base_keys)]
+    if df.empty or "base_key" not in df.columns:
+        return set()
+    df = df[df["base_key"].isin(kept_base_keys)] if kept_base_keys else df.iloc[0:0]
+    if df.empty:
+        return set()
     tier_a = df[df["cluster_id"] != NOISE_CLUSTER_ID]
     tier_b = df[
         (df["cluster_id"] == NOISE_CLUSTER_ID)
         & (df["count_all"] >= NOISE_RESCUE_THRESHOLD)
     ]
     combined = pd.concat([tier_a, tier_b], ignore_index=True)
+    if combined.empty:
+        return set()
     return {f"{k}={v}" for k, v in zip(combined["key"], combined["value"])}
 
 
