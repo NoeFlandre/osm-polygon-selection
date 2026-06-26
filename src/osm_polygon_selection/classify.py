@@ -1,15 +1,16 @@
-"""Stage 4: assign continent to each polygon via spatial lookup.
+"""Stage 3: assign continent and size bin to each polygon.
 
 Uses a Natural Earth admin0 shapefile (country polygons with continent
 labels) and a Shapely STRtree for fast point-in-polygon queries.
 """
 
-import json
 from pathlib import Path
 
 import geopandas as gpd  # type: ignore[import-untyped]  # stubs unavailable
 from shapely.geometry import Point
 from shapely.strtree import STRtree
+
+from osm_polygon_selection.jsonl_utils import stream_jsonl
 
 # Sentinel for polygons whose centroid does not fall in any country shape
 # (typically ocean polygons). Downstream stages can drop or bucket these.
@@ -54,22 +55,27 @@ def load_countries(shp_path: Path) -> tuple[STRtree, list, list]:
     return tree, countries_geom, countries_continent
 
 
+def _make_transform(tree, countries_geom, countries_continent):
+    """Closure: returns a row transform that attaches continent + size_bin."""
+
+    def transform(row: dict) -> dict:
+        lon, lat = row["centroid"]
+        row["continent"] = continent_of(
+            Point(lon, lat), tree, countries_geom, countries_continent,
+        )
+        row["size_bin"] = size_bin(row["area_km2"])
+        return row
+
+    return transform
+
+
 def classify_jsonl(
     jsonl_in: Path, shp_path: Path, jsonl_out: Path,
 ) -> int:
-    """Stream polygons in, attach continent, write out. Returns count."""
-    tree, countries_geom, countries_continent = load_countries(shp_path)
+    """Stream polygons in, attach continent + size_bin, write out.
 
-    jsonl_out.parent.mkdir(parents=True, exist_ok=True)
-    n = 0
-    with jsonl_in.open() as fin, jsonl_out.open("w") as fout:
-        for line in fin:
-            row = json.loads(line)
-            lon, lat = row["centroid"]
-            row["continent"] = continent_of(
-                Point(lon, lat), tree, countries_geom, countries_continent,
-            )
-            row["size_bin"] = size_bin(row["area_km2"])
-            fout.write(json.dumps(row) + "\n")
-            n += 1
-    return n
+    Returns number of polygons written.
+    """
+    tree, geom, cont = load_countries(shp_path)
+    kept, _ = stream_jsonl(jsonl_in, jsonl_out, _make_transform(tree, geom, cont))
+    return kept

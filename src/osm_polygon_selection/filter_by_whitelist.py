@@ -8,6 +8,8 @@ key=value pair).
 import json
 from pathlib import Path
 
+from osm_polygon_selection.jsonl_utils import stream_jsonl
+
 
 def filter_polygons(
     jsonl_in: Path, whitelist_path: Path, jsonl_out: Path,
@@ -19,15 +21,10 @@ def filter_polygons(
     with whitelist_path.open() as f:
         whitelist = set(json.load(f))
 
-    kept = 0
-    dropped = 0
-    jsonl_out.parent.mkdir(parents=True, exist_ok=True)
-    with jsonl_in.open() as f, jsonl_out.open("w") as out:
-        for line in f:
-            row = json.loads(line)
-            if set(row["tags"]) & whitelist:
-                out.write(json.dumps(row) + "\n")
-                kept += 1
-            else:
-                dropped += 1
-    return kept, dropped
+    def transform(row: dict) -> dict | None:
+        if set(row["tags"]) & whitelist:
+            return row
+        return None
+
+    kept, seen = stream_jsonl(jsonl_in, jsonl_out, transform)
+    return kept, seen - kept
