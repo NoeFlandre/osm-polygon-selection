@@ -112,10 +112,20 @@ European countries, classified by size bin (small/medium/large,
 area in [0.1, 100] km²) and tagged by continent (Natural Earth
 admin0 lookup).
 
+## Geographic distribution
+
+![Polygon distribution across Europe](map_preview.png)
+
+The map above shows a stratified sample of 1,200 polygons from the
+dataset (color-coded by country, sized by area). It gives a rough
+visual sense of which European regions are well-covered and which
+are sparse.
+
 ## Files
 
 - `all_europe.parquet` — all {total_polygons:,} polygons in a single file
 - `<country>.parquet` — per-country files
+- `map_preview.png` — geographic distribution preview (this README)
 - `manifest.json` — machine-readable build manifest
 - `README.md` — this file
 

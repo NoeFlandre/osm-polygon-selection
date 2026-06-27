@@ -43,6 +43,7 @@ warn_redundant_casts = true
 dev = [
     "mypy>=2.1.0",
     "pandas-stubs>=3.0.3.260530",
+    "playwright>=1.60.0",
     "pytest>=9.1.1",
     "types-shapely>=2.1.0.20260603",
 ]
