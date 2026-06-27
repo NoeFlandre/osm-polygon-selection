@@ -104,6 +104,34 @@ def pbf_date_for(country: str) -> str:
     return datetime.fromtimestamp(mtime).strftime("%Y-%m-%d")
 
 
+def write_metadata_yaml(out_dir: Path) -> None:
+    """Write metadata.yaml for the HuggingFace dataset viewer.
+
+    Same fields as the YAML frontmatter in the README. HF accepts
+    both, but having a standalone file makes the metadata visible
+    even before the README is parsed.
+    """
+    yaml_content = """license: odbl
+task_categories:
+  - other
+language:
+  - en
+tags:
+  - geospatial
+  - openstreetmap
+  - osm
+  - polygons
+  - landuse
+  - landcover
+  - remote-sensing
+  - foundation-model
+size_categories:
+  - 1M<n<10M
+"""
+    (out_dir / "metadata.yaml").write_text(yaml_content)
+    print("metadata.yaml written")
+
+
 def write_readme(out_dir: Path, countries_done: list[dict], total_polygons: int) -> None:
     # YAML frontmatter for HuggingFace dataset viewer compatibility.
     # Without this, HF shows "empty or missing yaml metadata in repo card"
@@ -266,6 +294,7 @@ def main() -> None:
     print(f"  combined: {combined.num_rows} polygons -> all_europe.parquet")
 
     write_readme(out_dir, countries_done, combined.num_rows)
+    write_metadata_yaml(out_dir)
 
     manifest = {
         "version": PIPELINE_VERSION,
