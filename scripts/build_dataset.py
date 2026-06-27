@@ -105,7 +105,30 @@ def pbf_date_for(country: str) -> str:
 
 
 def write_readme(out_dir: Path, countries_done: list[dict], total_polygons: int) -> None:
-    readme = f"""# osm-polygon-selection dataset
+    # YAML frontmatter for HuggingFace dataset viewer compatibility.
+    # Without this, HF shows "empty or missing yaml metadata in repo card"
+    # as a warning at the top of the dataset page.
+    yaml_frontmatter = """---
+license: odbl
+task_categories:
+  - other
+language:
+  - en
+tags:
+  - geospatial
+  - openstreetmap
+  - osm
+  - polygons
+  - landuse
+  - landcover
+  - remote-sensing
+  - foundation-model
+size_categories:
+  - 1M<n<10M
+---
+
+"""
+    readme = yaml_frontmatter + f"""# osm-polygon-selection dataset
 
 A curated set of OpenStreetMap polygons across {len(countries_done)}
 European countries, classified by size bin (small/medium/large,
@@ -126,6 +149,7 @@ are sparse.
 - `all_europe.parquet` — all {total_polygons:,} polygons in a single file
 - `<country>.parquet` — per-country files
 - `map_preview.png` — geographic distribution preview (this README)
+- `metadata.yaml` — HuggingFace dataset viewer metadata
 - `manifest.json` — machine-readable build manifest
 - `README.md` — this file
 
