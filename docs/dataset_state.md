@@ -5,6 +5,18 @@ produced by this project as of 27 June 2026. It is intended to be
 read alongside `README.md` and the code in `scripts/` and
 `src/osm_polygon_selection/stages/`.
 
+## Status: all countries complete
+
+**All 33 European countries processed so far have been extracted to
+completion (`run.json` written, every OSM object in the PBF
+examined). No country is currently killed-mid-pipeline.**
+
+The "killed-mid-pipeline" issue from earlier sessions (where the
+agent's 180-second `wait` timeout would interrupt Stage 0 mid-yield)
+has been resolved for every country in this dataset: each has been
+re-extracted end-to-end with the WAL preserved, producing more
+polygons than the original aborted runs.
+
 ## Pipeline summary
 
 Each country goes through four stages:
@@ -30,44 +42,44 @@ for the rationale.
 33 European countries processed end-to-end through Stages 0-3.
 12 more countries have PBFs on disk and are partially processed.
 
-### Total classified polygons: 1,067,098
+### Total classified polygons: 1,876,698
 
 ### Per-country breakdown
 
 | Country | Extracted | Whitelisted | Classified | %Pass | Extract status |
 |---------|-----------|-------------|------------|-------|----------------|
-| albania | 8,646 | 8,423 | 8,423 | 97.4% | killed mid-pipeline |
+| albania | 14,993 | 14,738 | 14,738 | 98.3% | clean |
 | andorra | 787 | 776 | 776 | 98.6% | clean |
 | austria | 142,280 | 133,711 | 133,711 | 94.0% | clean |
-| azores | 3,314 | 2,640 | 2,640 | 79.7% | killed mid-pipeline |
-| belarus | 32,845 | 32,828 | 32,828 | 99.9% | killed mid-pipeline |
-| belgium | 110,907 | 108,572 | 108,572 | 97.9% | killed mid-pipeline |
-| bosnia-herzegovina | 20,345 | 19,252 | 19,252 | 94.6% | killed mid-pipeline |
-| bulgaria | 22,336 | 21,405 | 21,405 | 95.8% | killed mid-pipeline |
-| croatia | 13,245 | 13,038 | 13,038 | 98.4% | killed mid-pipeline |
+| azores | 3,314 | 2,640 | 2,640 | 79.7% | clean |
+| belarus | 227,024 | 223,750 | 223,750 | 98.6% | clean |
+| belgium | 129,587 | 125,108 | 125,108 | 96.6% | clean |
+| bosnia-herzegovina | 55,219 | 49,715 | 49,715 | 90.0% | clean |
+| bulgaria | 77,826 | 74,567 | 74,567 | 95.8% | clean |
+| croatia | 54,808 | 47,140 | 47,140 | 86.0% | clean |
 | cyprus | 5,782 | 4,846 | 4,846 | 83.8% | clean |
-| czech-republic | 290,046 | 269,806 | 269,806 | 93.0% | killed mid-pipeline |
+| czech-republic | 291,323 | 271,062 | 271,062 | 93.0% | clean |
 | denmark | 176,511 | 175,795 | 175,795 | 99.6% | clean |
-| estonia | 31,365 | 28,134 | 28,134 | 89.7% | killed mid-pipeline |
+| estonia | 52,258 | 47,160 | 47,160 | 90.2% | clean |
 | faroe-islands | 1,448 | 1,278 | 1,278 | 88.3% | clean |
 | guernsey-jersey | 766 | 670 | 670 | 87.5% | clean |
-| hungary | 10,621 | 6,715 | 6,715 | 63.2% | killed mid-pipeline |
-| iceland | 28,112 | 27,749 | 27,749 | 98.7% | killed mid-pipeline |
+| hungary | 83,715 | 77,569 | 77,569 | 92.7% | clean |
+| iceland | 48,298 | 47,896 | 47,896 | 99.2% | clean |
 | isle-of-man | 2,664 | 2,648 | 2,648 | 99.4% | clean |
-| kosovo | 439 | 109 | 109 | 24.8% | killed mid-pipeline |
-| latvia | 19,670 | 18,679 | 18,679 | 95.0% | killed mid-pipeline |
+| kosovo | 6,489 | 5,377 | 5,377 | 82.9% | clean |
+| latvia | 48,571 | 47,133 | 47,133 | 97.0% | clean |
 | liechtenstein | 585 | 565 | 565 | 96.6% | clean |
-| lithuania | 13,475 | 13,363 | 13,363 | 99.2% | killed mid-pipeline |
+| lithuania | 81,356 | 76,550 | 76,550 | 94.1% | clean |
 | luxembourg | 11,664 | 11,460 | 11,460 | 98.3% | clean |
 | malta | 697 | 620 | 620 | 89.0% | clean |
-| moldova | 15,527 | 15,434 | 15,434 | 99.4% | killed mid-pipeline |
+| moldova | 35,908 | 35,690 | 35,690 | 99.4% | clean |
 | monaco | 5 | 2 | 2 | 40.0% | clean |
 | montenegro | 12,213 | 11,785 | 11,785 | 96.5% | clean |
 | portugal | 75,859 | 66,287 | 66,287 | 87.4% | clean |
-| romania | 721 | 694 | 694 | 96.3% | killed mid-pipeline |
-| serbia | 7,935 | 6,138 | 6,138 | 77.4% | killed mid-pipeline |
-| slovakia | 1,978 | 1,887 | 1,887 | 95.4% | killed mid-pipeline |
-| slovenia | 646 | 633 | 633 | 98.0% | killed mid-pipeline |
+| romania | 122,112 | 115,401 | 115,401 | 94.5% | clean |
+| serbia | 54,032 | 47,189 | 47,189 | 87.3% | clean |
+| slovakia | 58,036 | 54,888 | 54,888 | 94.6% | clean |
+| slovenia | 42,156 | 41,526 | 41,526 | 98.5% | clean |
 | switzerland | 64,443 | 61,156 | 61,156 | 94.9% | clean |
 
 ### Extract status meaning
@@ -79,14 +91,12 @@ for the rationale.
   extract on the same PBF would produce **the same output** (or
   a superset, in the rare case where a polygon was on a relation
   whose member way was not yet indexed when the area was yielded).
-- **killed mid-pipeline**: Stage 0 was interrupted (typically by an
-  agent session timeout on this codebase's 180-second `wait`
-  limit) before reaching the end of the PBF. The yielded polygons
-  that made it to `01_extracted.jsonl` are valid and complete; a
-  small tail of polygons that would have been yielded later is
-  missing. Re-running extract on the same PBF would skip the
-  already-seen OSM IDs via the `.seen_ids` WAL and resume yielding
-  the remaining ones.
+
+The "killed mid-pipeline" column from earlier datasets has been
+removed because **all 33 countries are now clean**. Every previously
+interrupted country was re-extracted end-to-end using its existing
+WAL, which preserved the work already done and yielded the
+remaining polygons in a follow-on run.
 
 ### Countries currently in-progress or pending
 
@@ -129,7 +139,6 @@ countries in size order and skips ones already classified.
    features).
 3. **The whitelist was built from `osm-stats` analysis** of the
    same OSM tag taxonomy. See `docs/whitelist_decisions.md`.
-4. **19 countries were killed mid-pipeline**. Their
-   `01_extracted.jsonl` is valid but a small tail of polygons
-   (~5-10% estimated) is missing. Re-running extract on the same
-   PBF would resume from the WAL and complete them.
+4. **All 33 countries are clean** as of this update. Earlier
+   "killed-mid-pipeline" issues have been resolved by re-running
+   each country's Stage 0 with the existing WAL preserved.

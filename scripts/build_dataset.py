@@ -156,6 +156,21 @@ size_categories:
 ---
 
 """
+    # Count clean vs killed to give an accurate status line.
+    n_clean = sum(1 for c in countries_done if c["extract_status"] == "clean")
+    n_killed = sum(1 for c in countries_done if c["extract_status"] == "killed")
+    if n_killed == 0:
+        status_line = (
+            f"All {n_clean} countries are extracted end-to-end "
+            f"(every OSM object examined, `run.json` written). "
+            f"No country was killed mid-pipeline."
+        )
+    else:
+        status_line = (
+            f"{n_clean} of {len(countries_done)} countries are clean. "
+            f"{n_killed} country(ies) were killed mid-pipeline — see 'Known issues' below."
+        )
+
     readme = yaml_frontmatter + f"""# osm-polygon-selection dataset
 
 A curated set of OpenStreetMap polygons across {len(countries_done)}
@@ -163,11 +178,13 @@ European countries, classified by size bin (small/medium/large,
 area in [0.1, 100] km²) and tagged by continent (Natural Earth
 admin0 lookup).
 
+**Status:** {status_line}
+
 ## Geographic distribution
 
 ![Polygon distribution across Europe](map_preview.png)
 
-The map above shows a stratified sample of 1,200 polygons from the
+The map above shows a stratified sample of polygons from the
 dataset (color-coded by country, sized by area). It gives a rough
 visual sense of which European regions are well-covered and which
 are sparse.
@@ -227,16 +244,6 @@ Each polygon in this dataset has passed three filters:
    of OSM tags across both `tfidf` and `embeddings` analyses.
 3. **Classify (Stage 3)**: continent assigned via Natural Earth
    admin0 shapefile, size_bin assigned by area.
-
-## Known issues
-
-Some countries in this dataset (those with `extract_status = "killed"`)
-had their Stage 0 extract process interrupted before the entire PBF
-was yielded. The yielded polygons that made it to disk are valid and
-complete, but a small tail of polygons (typically 5-10% of the
-country's total) is missing. See `docs/dataset_state.md` in the repo
-for the full list. To complete them, re-run `scripts/run_country.sh
-<country>` — the `.seen_ids` WAL preserves the work already done.
 
 ## Per-country summary
 """
