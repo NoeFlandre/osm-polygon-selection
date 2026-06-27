@@ -66,9 +66,13 @@ def main() -> None:
                         for i, c in enumerate(sorted(countries_seen))}
 
     # Use the centroid of the first row as the initial map center.
+    # Accept both formats: nested centroid list OR flat lon/lat fields.
     if rows_buffer:
         first = rows_buffer[0]
-        c = first["centroid"]
+        if "centroid_lon" in first and "centroid_lat" in first:
+            c = [first["centroid_lon"], first["centroid_lat"]]
+        else:
+            c = first.get("centroid", [9.5, 47.0])  # fallback: Switzerland
         center = [c[1], c[0]]  # folium wants [lat, lon]
         zoom = 4
     else:
@@ -90,22 +94,28 @@ def main() -> None:
         )
         # Use a CircleMarker sized by area, centered on the polygon
         # centroid. Cheaper than GeoJson polygons and scales nicely
-        # on the map.
-        if "centroid" in row:
+        # on the map. Accept both formats:
+        # - new (parquet): centroid_lon + centroid_lat
+        # - old (JSONL): centroid = [lon, lat]
+        if "centroid_lon" in row and "centroid_lat" in row:
+            lon, lat = row["centroid_lon"], row["centroid_lat"]
+        elif "centroid" in row:
             lon, lat = row["centroid"]
-            area = row.get("area_km2", 0.1)
-            # radius in pixels: sqrt(area) * scale, clamped
-            radius = max(2, min(15, (area ** 0.5) * 1.5))
-            folium.CircleMarker(
-                location=[lat, lon],
-                radius=radius,
-                color=color,
-                fill=True,
-                fill_color=color,
-                fill_opacity=0.5,
-                weight=1,
-                popup=folium.Popup(popup, max_width=300),
-            ).add_to(fmap)
+        else:
+            continue  # no coordinates, skip
+        area = row.get("area_km2", 0.1)
+        # radius in pixels: sqrt(area) * scale, clamped
+        radius = max(2, min(15, (area ** 0.5) * 1.5))
+        folium.CircleMarker(
+            location=[lat, lon],
+            radius=radius,
+            color=color,
+            fill=True,
+            fill_color=color,
+            fill_opacity=0.5,
+            weight=1,
+            popup=folium.Popup(popup, max_width=300),
+        ).add_to(fmap)
 
     # Add a small legend if any countries are colored.
     if country_to_color:
