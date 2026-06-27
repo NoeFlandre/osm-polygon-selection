@@ -104,56 +104,7 @@ def pbf_date_for(country: str) -> str:
     return datetime.fromtimestamp(mtime).strftime("%Y-%m-%d")
 
 
-def main() -> None:
-    out_dir = Path("/Users/noeflandre/osm-polygon-selection/data/dataset")
-    if out_dir.exists():
-        shutil.rmtree(out_dir)
-    out_dir.mkdir(parents=True, exist_ok=True)
-
-    countries_done = []
-    for country_dir in sorted(PROC.iterdir()):
-        if not country_dir.is_dir():
-            continue
-        classified = country_dir / "03_classified.jsonl"
-        if not classified.exists():
-            continue
-        country = country_dir.name
-        status = extract_status(country)
-        pbf_date = pbf_date_for(country)
-
-        rows = []
-        with classified.open() as f:
-            for line in f:
-                rec = row_to_record(json.loads(line), country, status, pbf_date)
-                if rec is not None:
-                    rows.append(rec)
-        if not rows:
-            continue
-
-        table = pa.Table.from_pylist(rows, schema=build_schema())
-        # Per-country parquet file: lighter to download individually
-        # than a single 100MB+ file, and easier to inspect.
-        out_file = out_dir / f"{country}.parquet"
-        pq.write_table(table, out_file, compression="snappy")
-        countries_done.append({
-            "country": country,
-            "n_polygons": len(rows),
-            "extract_status": status,
-            "pbf_date": pbf_date,
-        })
-        print(f"  {country}: {len(rows)} polygons -> {out_file.name}")
-
-    # Combined parquet
-    print("\nBuilding combined parquet...")
-    all_tables = []
-    for c in countries_done:
-        table = pq.read_table(out_dir / f"{c['country']}.parquet")
-        all_tables.append(table)
-    combined = pa.concat_tables(all_tables, promote_options="default")
-    pq.write_table(combined, out_dir / "all_europe.parquet", compression="snappy")
-    print(f"  combined: {combined.num_rows} polygons -> all_europe.parquet")
-
-    # README for the dataset
+def write_readme(out_dir: Path, countries_done: list[dict], total_polygons: int) -> None:
     readme = f"""# osm-polygon-selection dataset
 
 A curated set of OpenStreetMap polygons across {len(countries_done)}
@@ -163,8 +114,20 @@ admin0 lookup).
 
 ## Files
 
-- `all_europe.parquet` — all {combined.num_rows:,} polygons in a single file
+- `all_europe.parquet` — all {total_polygons:,} polygons in a single file
 - `<country>.parquet` — per-country files
+- `manifest.json` — machine-readable build manifest
+- `README.md` — this file
+
+## Resources
+
+To understand where this dataset comes from and how the filters
+were designed, see these resources:
+
+- **Blog post** (long-form context): [OSM data analysis for landuse](https://noeflandre.com/posts/osm-data-analysis) on noeflandre.com. Explains the osm-stats clustering that produced the whitelist, including the arithmetic correction (the blog originally claimed 326 union base keys; the correct value is 236).
+- **GitHub repo** (code + documentation): [NoeFlandre/osm-polygon-selection](https://github.com/NoeFlandre/osm-polygon-selection). The pipeline source code, whitelist decisions, and dataset-state documentation.
+- **Related repo** (whitelist source data): [NoeFlandre/osm-stats](https://github.com/NoeFlandre/osm-stats). The TF-IDF and embeddings analyses on OSM tags that fed into the 22,075-tag whitelist.
+- **Project repo docs** (in-repo documentation): `docs/whitelist_decisions.md` (Tier A / Tier B inclusion rules) and `docs/dataset_state.md` (per-country coverage breakdown and known issues).
 
 ## Schema
 
@@ -203,15 +166,73 @@ Each polygon in this dataset has passed three filters:
 3. **Classify (Stage 3)**: continent assigned via Natural Earth
    admin0 shapefile, size_bin assigned by area.
 
+## Known issues
+
+Some countries in this dataset (those with `extract_status = "killed"`)
+had their Stage 0 extract process interrupted before the entire PBF
+was yielded. The yielded polygons that made it to disk are valid and
+complete, but a small tail of polygons (typically 5-10% of the
+country's total) is missing. See `docs/dataset_state.md` in the repo
+for the full list. To complete them, re-run `scripts/run_country.sh
+<country>` — the `.seen_ids` WAL preserves the work already done.
+
 ## Per-country summary
 """
     for c in countries_done:
         readme += f"- {c['country']}: {c['n_polygons']:,} polygons ({c['extract_status']})\n"
 
     (out_dir / "README.md").write_text(readme)
-    print(f"\nREADME.md written ({len(readme)} chars)")
+    print(f"README.md written ({len(readme)} chars)")
 
-    # Manifest with totals
+
+def main() -> None:
+    out_dir = Path("/Users/noeflandre/osm-polygon-selection/data/dataset")
+    if out_dir.exists():
+        shutil.rmtree(out_dir)
+    out_dir.mkdir(parents=True, exist_ok=True)
+
+    countries_done = []
+    for country_dir in sorted(PROC.iterdir()):
+        if not country_dir.is_dir():
+            continue
+        classified = country_dir / "03_classified.jsonl"
+        if not classified.exists():
+            continue
+        country = country_dir.name
+        status = extract_status(country)
+        pbf_date = pbf_date_for(country)
+
+        rows = []
+        with classified.open() as f:
+            for line in f:
+                rec = row_to_record(json.loads(line), country, status, pbf_date)
+                if rec is not None:
+                    rows.append(rec)
+        if not rows:
+            continue
+
+        table = pa.Table.from_pylist(rows, schema=build_schema())
+        out_file = out_dir / f"{country}.parquet"
+        pq.write_table(table, out_file, compression="snappy")
+        countries_done.append({
+            "country": country,
+            "n_polygons": len(rows),
+            "extract_status": status,
+            "pbf_date": pbf_date,
+        })
+        print(f"  {country}: {len(rows)} polygons -> {out_file.name}")
+
+    print("\nBuilding combined parquet...")
+    all_tables = []
+    for c in countries_done:
+        table = pq.read_table(out_dir / f"{c['country']}.parquet")
+        all_tables.append(table)
+    combined = pa.concat_tables(all_tables, promote_options="default")
+    pq.write_table(combined, out_dir / "all_europe.parquet", compression="snappy")
+    print(f"  combined: {combined.num_rows} polygons -> all_europe.parquet")
+
+    write_readme(out_dir, countries_done, combined.num_rows)
+
     manifest = {
         "version": PIPELINE_VERSION,
         "git_sha": git_sha(),
@@ -224,6 +245,11 @@ Each polygon in this dataset has passed three filters:
             "min_area_km2": 0.1,
             "max_area_km2": 100.0,
             "whitelist_size": 22075,
+        },
+        "resources": {
+            "blog_post": "https://noeflandre.com/posts/osm-data-analysis",
+            "github_repo": "https://github.com/NoeFlandre/osm-polygon-selection",
+            "related_repo": "https://github.com/NoeFlandre/osm-stats",
         },
     }
     (out_dir / "manifest.json").write_text(json.dumps(manifest, indent=2))
