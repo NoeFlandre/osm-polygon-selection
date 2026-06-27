@@ -21,17 +21,17 @@ OUT_PATH = Path("/tmp/sample_map.jsonl")
 
 # Per-country floor and cap. Floor ensures small countries show up;
 # cap prevents one country from dominating the map.
-FLOOR = 5           # every country gets at least this many
-CAP_RATIO = 0.30    # no country gets more than 30% of the sample
-TARGET_TOTAL = 300  # lightweight target
+FLOOR = 15          # every country gets at least this many
+CAP_RATIO = 0.40    # no country gets more than 40% of the sample
+TARGET_TOTAL = 1000  # dense coverage, ~5MB HTML
 
 # Per-bin allocation within a country. Sum should be ~1.0; we just
 # sample up to this many per bin.
 BIN_BUDGET = {
-    "tiny": 2,
-    "small": 6,
-    "medium": 4,
-    "large": 2,
+    "tiny": 4,
+    "small": 12,
+    "medium": 8,
+    "large": 4,
 }
 
 random.seed(42)
@@ -106,6 +106,11 @@ def main() -> None:
             if pool:
                 picked = pool.pop(random.randrange(len(pool)))
                 picked["country"] = country  # tag for visualization
+                # Drop the WKT geometry: the visualize script re-derives
+                # the shape from centroid + area for display. Keeps the
+                # sample JSONL tiny and the rendered map fast.
+                if "geometry" in picked:
+                    del picked["geometry"]
                 per_country.append(picked)
             idx += 1
             if idx > 10 * target and not pool:

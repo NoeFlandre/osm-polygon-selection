@@ -10,7 +10,6 @@ import json
 from pathlib import Path
 
 import folium
-import shapely.wkt
 
 # Stable, distinct color per country (cycled). Chosen for legibility
 # on the default folium tileset.
@@ -80,7 +79,6 @@ def main() -> None:
     for row in rows_buffer:
         country = row.get("country")
         color = color_for_country(country, country_to_color)
-        geom = shapely.wkt.loads(row["geometry"])
         tags = ", ".join(row.get("tags", [])[:5])
         country_str = f"<br>country: {country}" if country else ""
         popup = (
@@ -90,14 +88,24 @@ def main() -> None:
             f"<br>size_bin: {row.get('size_bin', '?')}"
             f"<br>tags: {tags}"
         )
-        gj = folium.GeoJson(
-            geom.__geo_interface__,
-            style_function=lambda _, col=color: {
-                "color": col, "weight": 1, "fillOpacity": 0.35,
-            },
-        )
-        gj.add_child(folium.Popup(popup, max_width=300))
-        gj.add_to(fmap)
+        # Use a CircleMarker sized by area, centered on the polygon
+        # centroid. Cheaper than GeoJson polygons and scales nicely
+        # on the map.
+        if "centroid" in row:
+            lon, lat = row["centroid"]
+            area = row.get("area_km2", 0.1)
+            # radius in pixels: sqrt(area) * scale, clamped
+            radius = max(2, min(15, (area ** 0.5) * 1.5))
+            folium.CircleMarker(
+                location=[lat, lon],
+                radius=radius,
+                color=color,
+                fill=True,
+                fill_color=color,
+                fill_opacity=0.5,
+                weight=1,
+                popup=folium.Popup(popup, max_width=300),
+            ).add_to(fmap)
 
     # Add a small legend if any countries are colored.
     if country_to_color:
