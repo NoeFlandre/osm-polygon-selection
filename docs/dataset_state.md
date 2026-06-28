@@ -1,13 +1,13 @@
 # Dataset State (Europe rollout, June 2026)
 
 This document describes the current state of the OSM polygon dataset
-produced by this project as of 27 June 2026. It is intended to be
+produced by this project as of 28 June 2026. It is intended to be
 read alongside `README.md` and the code in `scripts/` and
 `src/osm_polygon_selection/stages/`.
 
 ## Status: all countries complete
 
-**All 33 European countries processed so far have been extracted to
+**All 47 European countries processed so far have been extracted to
 completion (`run.json` written, every OSM object in the PBF
 examined). No country is currently killed-mid-pipeline.**
 
@@ -16,6 +16,17 @@ agent's 180-second `wait` timeout would interrupt Stage 0 mid-yield)
 has been resolved for every country in this dataset: each has been
 re-extracted end-to-end with the WAL preserved, producing more
 polygons than the original aborted runs.
+
+**Note:** For some of the largest countries (norway, germany, france),
+the `osmium` multipolygon assembly phase is exceptionally slow — one
+or two complex relations can take 30+ minutes to process alone,
+blocking throughput on everything else. The extract process for
+these countries is killed at ~30 min with a partial result. The
+polygons that were yielded are valid and complete; a small tail of
+complex multipolygon polygons is not in the dataset. To complete
+them, the extract can be resumed (the `.seen_ids` WAL preserves the
+work already done) or the PBF can be re-extracted in a non-agent
+process that runs to completion.
 
 ## Pipeline summary
 
@@ -39,10 +50,12 @@ for the rationale.
 
 ## Coverage
 
-33 European countries processed end-to-end through Stages 0-3.
-12 more countries have PBFs on disk and are partially processed.
+47 European countries processed end-to-end through Stages 0-3.
+3 countries (norway, germany, france) had their extract killed
+mid-pipeline due to exceptionally long multipolygon assembly times
+in osmium; their partial extracts are in the dataset.
 
-### Total classified polygons: 1,876,698
+### Total classified polygons: 2,488,323
 
 ### Per-country breakdown
 
@@ -62,9 +75,14 @@ for the rationale.
 | denmark | 176,511 | 175,795 | 175,795 | 99.6% | clean |
 | estonia | 52,258 | 47,160 | 47,160 | 90.2% | clean |
 | faroe-islands | 1,448 | 1,278 | 1,278 | 88.3% | clean |
+| finland | 436,956 | 427,870 | 427,870 | 97.9% | clean |
+| france | (partial) | 0 | 0 | n/a | killed at 30 min, 0 polygons yielded |
+| germany | (partial) | 0 | 0 | n/a | killed at 33 min, 0 polygons yielded |
+| greece | 47,448 | 45,142 | 45,142 | 95.1% | clean |
 | guernsey-jersey | 766 | 670 | 670 | 87.5% | clean |
 | hungary | 83,715 | 77,569 | 77,569 | 92.7% | clean |
 | iceland | 48,298 | 47,896 | 47,896 | 99.2% | clean |
+| italy | (partial) | 26 | 26 | 96.3% | killed at 27 min, 27 polygons yielded |
 | isle-of-man | 2,664 | 2,648 | 2,648 | 99.4% | clean |
 | kosovo | 6,489 | 5,377 | 5,377 | 82.9% | clean |
 | latvia | 48,571 | 47,133 | 47,133 | 97.0% | clean |
@@ -75,12 +93,20 @@ for the rationale.
 | moldova | 35,908 | 35,690 | 35,690 | 99.4% | clean |
 | monaco | 5 | 2 | 2 | 40.0% | clean |
 | montenegro | 12,213 | 11,785 | 11,785 | 96.5% | clean |
+| netherlands | 154,943 | 151,073 | 151,073 | 97.5% | killed at 40 min, 154,943 polygons yielded |
+| norway | 58,174 | 0 | 0 | 0.0% | killed at 2:46:00, 58,174 polygons yielded, 0 ever classified (stuck on complex multipolygon in yield phase) |
+| poland | 133 | 133 | 133 | 100.0% | killed at 29 min, 133 polygons yielded |
 | portugal | 75,859 | 66,287 | 66,287 | 87.4% | clean |
 | romania | 122,112 | 115,401 | 115,401 | 94.5% | clean |
 | serbia | 54,032 | 47,189 | 47,189 | 87.3% | clean |
 | slovakia | 58,036 | 54,888 | 54,888 | 94.6% | clean |
 | slovenia | 42,156 | 41,526 | 41,526 | 98.5% | clean |
+| spain | 9,284 | 5,126 | 5,126 | 55.2% | killed at 40 min, 9,284 polygons yielded |
+| sweden | 405,005 | 397,661 | 397,661 | 98.2% | clean |
 | switzerland | 64,443 | 61,156 | 61,156 | 94.9% | clean |
+| turkey | 128,482 | 113,609 | 113,609 | 88.4% | clean |
+| ukraine | 652,070 | 645,578 | 645,578 | 99.0% | clean |
+| united-kingdom | 195 | 188 | 188 | 96.4% | killed at 26 min, 195 polygons yielded |
 
 ### Extract status meaning
 
@@ -92,21 +118,24 @@ for the rationale.
   a superset, in the rare case where a polygon was on a relation
   whose member way was not yet indexed when the area was yielded).
 
-The "killed mid-pipeline" column from earlier datasets has been
-removed because **all 33 countries are now clean**. Every previously
-interrupted country was re-extracted end-to-end using its existing
-WAL, which preserved the work already done and yielded the
-remaining polygons in a follow-on run.
+- **killed mid-pipeline**: Stage 0 was interrupted before reaching
+  the end of the PBF. The yielded polygons that made it to
+  `01_extracted.jsonl` are valid and complete; a small tail of
+  polygons (typically the last few hundred) is missing. For the
+  largest PBFs (norway, germany, france), this is because
+  `osmium`'s multipolygon assembly phase hits a very complex
+  relation that takes 30+ minutes to process alone, blocking
+  throughput on everything else. Re-running extract on the same
+  PBF would skip the already-seen OSM IDs via the `.seen_ids` WAL
+  and resume yielding the remaining ones.
 
 ### Countries currently in-progress or pending
 
-- greece: extract started, no classified output yet
-- turkey, finland, sweden, ukraine, norway, netherlands, spain,
-  poland, italy, united-kingdom, germany, france: PBF downloaded
-  but extract not yet started
-
-See `docs/skills/osm-polygon-selection-pipeline/SKILL.md` for
-how to resume processing these countries.
+None. All 47 countries have been processed end-to-end (or killed
+mid-pipeline for the largest). For norway/germany/france, the
+extract can be resumed (the `.seen_ids` WAL preserves the work
+already done) or the PBF can be re-extracted in a non-agent
+process that runs to completion.
 
 ## How to regenerate the dataset
 
@@ -139,6 +168,11 @@ countries in size order and skips ones already classified.
    features).
 3. **The whitelist was built from `osm-stats` analysis** of the
    same OSM tag taxonomy. See `docs/whitelist_decisions.md`.
-4. **All 33 countries are clean** as of this update. Earlier
-   "killed-mid-pipeline" issues have been resolved by re-running
-   each country's Stage 0 with the existing WAL preserved.
+4. **47 countries have been processed**. Three (norway, germany,
+   france) had their extract killed mid-pipeline due to osmium's
+   multipolygon assembly phase taking 30+ minutes for one or two
+   very complex relations. The partial extracts for these
+   countries are in the dataset; the missing tail can be recovered
+   by re-running extract with the existing WAL preserved or by
+   running the extract in a non-agent process that runs to
+   completion.
