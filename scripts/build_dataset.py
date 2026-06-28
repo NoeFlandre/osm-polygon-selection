@@ -260,6 +260,8 @@ def main() -> None:
         shutil.rmtree(out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
 
+    # First pass: countries with a non-empty 03_classified.jsonl.
+    # These produce per-country parquet files + manifest rows.
     countries_done = []
     for country_dir in sorted(PROC.iterdir()):
         if not country_dir.is_dir():
@@ -277,7 +279,19 @@ def main() -> None:
                 rec = row_to_record(json.loads(line), country, status, pbf_date)
                 if rec is not None:
                     rows.append(rec)
+
         if not rows:
+            # Zero-yield 03_classified.jsonl: country attempted, extract ran
+            # but produced no polygons (e.g. killed before any output).
+            # Record it in the manifest with n_polygons=0 so downstream
+            # users know the country was tried but is absent from the data.
+            countries_done.append({
+                "country": country,
+                "n_polygons": 0,
+                "extract_status": status,  # "killed" if run.json missing
+                "pbf_date": pbf_date,
+            })
+            print(f"  {country}: 0 polygons (zero-yield, recorded in manifest only)")
             continue
 
         table = pa.Table.from_pylist(rows, schema=build_schema())
@@ -291,9 +305,30 @@ def main() -> None:
         })
         print(f"  {country}: {len(rows)} polygons -> {out_file.name}")
 
+    # Second pass: countries that have a raw/ PBF but no 03_classified.jsonl
+    # at all (i.e. Stage 0 was started but killed before reaching Stage 2/3).
+    # Excludes the continent-wide "europe-latest.osm.pbf" (the parent
+    # Geofabrik extract, not a country).
+    raw_dir = HDD / "raw"
+    for pbf in sorted(raw_dir.glob("*-latest.osm.pbf")):
+        country = pbf.name.replace("-latest.osm.pbf", "")
+        if country == "europe":
+            continue
+        if any(c["country"] == country for c in countries_done):
+            continue
+        countries_done.append({
+            "country": country,
+            "n_polygons": 0,
+            "extract_status": "killed",
+            "pbf_date": datetime.fromtimestamp(pbf.stat().st_mtime).strftime("%Y-%m-%d"),
+        })
+        print(f"  {country}: 0 polygons (no 03 file, PBF present, recorded)")
     print("\nBuilding combined parquet...")
     all_tables = []
     for c in countries_done:
+        # Skip zero-yield countries: they have no per-country parquet file.
+        if c["n_polygons"] == 0:
+            continue
         table = pq.read_table(out_dir / f"{c['country']}.parquet")
         all_tables.append(table)
     combined = pa.concat_tables(all_tables, promote_options="default")

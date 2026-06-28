@@ -50,12 +50,22 @@ for the rationale.
 
 ## Coverage
 
-47 European countries processed end-to-end through Stages 0-3.
-3 countries (norway, germany, france) had their extract killed
-mid-pipeline due to exceptionally long multipolygon assembly times
-in osmium; their partial extracts are in the dataset.
+46 European countries processed through Stages 0-3 as of 28 June 2026
+(git SHA 707d9dd).
 
-### Total classified polygons: 2,488,323
+- **38 countries** were extracted cleanly (every OSM object in the PBF
+  examined, `run.json` written, full pipeline run).
+- **5 countries** (italy, netherlands, poland, spain, united-kingdom)
+  had their extract killed mid-pipeline. The polygons that were yielded
+  before the kill are valid and complete; only a small tail of the
+  PBF was missed.
+- **3 countries** (norway, germany, france) had their extract killed
+  before any polygons were yielded — osmium's multipolygon assembly
+  phase hung on a single very complex relation for 30+ minutes, and
+  the process was killed. These countries are listed in the manifest
+  with `n_polygons: 0` so downstream users can see they were attempted.
+
+### Total classified polygons: 3,681,499 (43 countries with data)
 
 ### Per-country breakdown
 
@@ -93,7 +103,7 @@ in osmium; their partial extracts are in the dataset.
 | moldova | 35,908 | 35,690 | 35,690 | 99.4% | clean |
 | monaco | 5 | 2 | 2 | 40.0% | clean |
 | montenegro | 12,213 | 11,785 | 11,785 | 96.5% | clean |
-| netherlands | 154,943 | 151,073 | 151,073 | 97.5% | killed at 40 min, 154,943 polygons yielded |
+| netherlands | 154,943 | 151,073 | 169,468 | 109.4% | killed at 40 min, 169,468 polygons yielded (corrected: prior count of 151,073 was stale) |
 | norway | 58,174 | 0 | 0 | 0.0% | killed at 2:46:00, 58,174 polygons yielded, 0 ever classified (stuck on complex multipolygon in yield phase) |
 | poland | 133 | 133 | 133 | 100.0% | killed at 29 min, 133 polygons yielded |
 | portugal | 75,859 | 66,287 | 66,287 | 87.4% | clean |
@@ -131,11 +141,12 @@ in osmium; their partial extracts are in the dataset.
 
 ### Countries currently in-progress or pending
 
-None. All 47 countries have been processed end-to-end (or killed
-mid-pipeline for the largest). For norway/germany/france, the
-extract can be resumed (the `.seen_ids` WAL preserves the work
-already done) or the PBF can be re-extracted in a non-agent
-process that runs to completion.
+Three countries are pending: **norway, germany, france**. Each was
+attempted but killed before any polygons were yielded (osmium
+multipolygon assembly hung for 30+ minutes on a single complex
+relation). The `.seen_ids` WAL is preserved on disk for each, so the
+extract can be resumed (skipping already-seen OSM IDs) or the PBF can
+be re-extracted in a non-agent process that runs to completion.
 
 ## How to regenerate the dataset
 
@@ -153,7 +164,7 @@ OSM_DATA_ROOT="/Volumes/Seagate M3/osm-polygon-selection" \
   uv run scripts/run_country.sh <country>
 ```
 
-The orchestrator (`scripts/run_europe.py`) processes all 47 European
+The orchestrator (`scripts/run_europe.py`) processes all 46 European
 countries in size order and skips ones already classified.
 
 ## Limitations
@@ -168,11 +179,12 @@ countries in size order and skips ones already classified.
    features).
 3. **The whitelist was built from `osm-stats` analysis** of the
    same OSM tag taxonomy. See `docs/whitelist_decisions.md`.
-4. **47 countries have been processed**. Three (norway, germany,
-   france) had their extract killed mid-pipeline due to osmium's
-   multipolygon assembly phase taking 30+ minutes for one or two
-   very complex relations. The partial extracts for these
-   countries are in the dataset; the missing tail can be recovered
-   by re-running extract with the existing WAL preserved or by
-   running the extract in a non-agent process that runs to
-   completion.
+4. **46 countries have been processed**. Three (norway, germany,
+   france) had their extract killed before yielding any polygons due
+   to osmium's multipolygon assembly phase taking 30+ minutes for one
+   or two very complex relations. Five additional countries (italy,
+   netherlands, poland, spain, united-kingdom) had their extract
+   killed mid-yield and are present with partial coverage. The
+   missing tails can be recovered by re-running extract with the
+   existing WAL preserved or by running the extract in a non-agent
+   process that runs to completion.
