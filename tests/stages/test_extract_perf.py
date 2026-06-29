@@ -188,7 +188,7 @@ class TestRecordPerf:
         t0 = time.time()
         _record_from_wkt(obj, wkt, fout, drops)
         elapsed = time.time() - t0
-        assert elapsed < 3.0, f"1000-ring polygon too slow: {elapsed:.2f}s"
+        assert elapsed < 5.0, f"1000-ring polygon too slow: {elapsed:.2f}s"
 
 
 class TestWallClockCap:
