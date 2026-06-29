@@ -344,6 +344,27 @@ def extract(
     hit_time_limit = False
     wal_buffer: list[str] = []
     deadline = (start_time + max_seconds) if max_seconds is not None else None
+
+    # If a wall-clock cap is set, install a SIGALRM handler that
+    # raises an exception in the main thread. The exception fires
+    # even if osmium is blocked inside the FileProcessor (e.g. building
+    # the first-pass spatial index for a giant multipolygon), which
+    # a deadline check in the main loop cannot interrupt. The
+    # exception is caught below and the loop exits cleanly, preserving
+    # the WAL.
+    class _WallClockTimeout(Exception):
+        pass
+
+    def _alarm_handler(signum, frame):
+        raise _WallClockTimeout()
+
+    if deadline is not None:
+        old_handler = signal.signal(signal.SIGALRM, _alarm_handler)
+        # type: ignore[arg-type] - mypy doesn't narrow None here
+        signal.setitimer(
+            signal.ITIMER_REAL,
+            max_seconds,  # type: ignore[arg-type]
+        )
     WAL_BATCH = 10_000  # flush WAL every N writes (~10k IDs = ~100KB buffered)
 
     def flush_wal() -> None:
@@ -390,41 +411,52 @@ def extract(
         last_progress_count = n_written + n_skipped
 
     with out_path.open("a") as fout, wal_path.open("a") as fwal:
-        for obj in osmium.FileProcessor(str(pbf_path)).with_areas():
-            # Wall-clock limit: break the loop cleanly so we can resume
-            # without losing state. The next run skips all already-seen
-            # ids via the WAL.
-            if deadline is not None and time.time() >= deadline:
-                hit_time_limit = True
-                break
+        try:
+            for obj in osmium.FileProcessor(str(pbf_path)).with_areas():
+                # Wall-clock limit: break the loop cleanly so we can resume
+                # without losing state. The next run skips all already-seen
+                # ids via the WAL.
+                if deadline is not None and time.time() >= deadline:
+                    hit_time_limit = True
+                    break
 
-            osm_id = obj.id
-            if osm_id in seen_ids:
-                n_skipped += 1
-                continue
+                osm_id = obj.id
+                if osm_id in seen_ids:
+                    n_skipped += 1
+                    continue
 
-            if limit is not None and n_written >= limit:
-                hit_limit = True
-                break
+                if limit is not None and n_written >= limit:
+                    hit_limit = True
+                    break
 
-            n = _record(cast(osmium.osm.Area, obj), fout, drops)
-            # Mark the osm_id as seen regardless of whether it was
-            # accepted (written) or dropped. This is what makes resume
-            # truly skip work: we never re-evaluate the same id.
-            # WAL writes are batched (every WAL_BATCH IDs) to avoid
-            # doing 200M+ disk syncs on a 32GB PBF.
-            wal_buffer.append(f"{osm_id}\n")
-            if len(wal_buffer) >= WAL_BATCH:
-                flush_wal()
-            if n > 0:
-                fout.flush()
-                n_written += 1
-            seen_ids.add(osm_id)
+                n = _record(cast(osmium.osm.Area, obj), fout, drops)
+                # Mark the osm_id as seen regardless of whether it was
+                # accepted (written) or dropped. This is what makes resume
+                # truly skip work: we never re-evaluate the same id.
+                # WAL writes are batched (every WAL_BATCH IDs) to avoid
+                # doing 200M+ disk syncs on a 32GB PBF.
+                wal_buffer.append(f"{osm_id}\n")
+                if len(wal_buffer) >= WAL_BATCH:
+                    flush_wal()
+                if n > 0:
+                    fout.flush()
+                    n_written += 1
+                seen_ids.add(osm_id)
 
-            maybe_write_progress()
+                maybe_write_progress()
+        except _WallClockTimeout:
+            # The SIGALRM fired during flush_wal() (or somewhere else
+            # inside the loop). Treat it the same as a clean deadline
+            # hit: stop the loop, flush what we have, and exit cleanly
+            # so the WAL is preserved for resume.
+            hit_time_limit = True
+            _log("wall-clock timeout received inside main loop; exiting cleanly")
 
         # Flush any remaining WAL buffer at end of iteration.
-        flush_wal()
+        try:
+            flush_wal()
+        except _WallClockTimeout:
+            hit_time_limit = True
 
     # Final progress update.
     maybe_write_progress(force=True)

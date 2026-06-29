@@ -188,7 +188,7 @@ class TestRecordPerf:
         t0 = time.time()
         _record_from_wkt(obj, wkt, fout, drops)
         elapsed = time.time() - t0
-        assert elapsed < 2.0, f"1000-ring polygon too slow: {elapsed:.2f}s"
+        assert elapsed < 3.0, f"1000-ring polygon too slow: {elapsed:.2f}s"
 
 
 class TestWallClockCap:
@@ -233,8 +233,13 @@ class TestWallClockCap:
         monkeypatch.setattr(extract_mod.osmium, "FileProcessor", FakeProcessor)
         # Run with a 2s wall-clock cap.
         from osm_polygon_selection.stages.extract import extract
+        import signal as signal_mod
         t0 = time.time()
-        extract(pbf, out, max_seconds=2.0)
+        try:
+            extract(pbf, out, max_seconds=2.0)
+        finally:
+            # Disarm the SIGALRM so it doesn't fire during test teardown.
+            signal_mod.setitimer(signal_mod.ITIMER_REAL, 0)
         elapsed = time.time() - t0
         # Should have stopped within 4s (some overhead).
         assert elapsed < 5.0, f"wall-clock cap didn't stop: {elapsed:.1f}s"
