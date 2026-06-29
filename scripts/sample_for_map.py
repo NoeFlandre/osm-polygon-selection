@@ -19,7 +19,10 @@ from pathlib import Path
 import pyarrow.parquet as pq
 
 PROCESSED_ROOT = Path("/Volumes/Seagate M3/osm-polygon-selection/processed")
-DATASET_ROOT = Path("/Users/noeflandre/osm-polygon-selection/data/dataset")
+DATASET_ROOT = Path(os.environ.get(
+    "OSM_DATASET_DIR",
+    str(Path(__file__).resolve().parent.parent / "data" / "dataset"),
+))
 OUT_PATH = Path("/tmp/sample_map.jsonl")
 
 # Per-country floor and cap. Floor ensures small countries show up;

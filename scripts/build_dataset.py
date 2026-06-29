@@ -41,6 +41,15 @@ HDD = Path("/Volumes/Seagate M3/osm-polygon-selection")
 PROC = HDD / "processed"
 PIPELINE_VERSION = "v0.1.0"
 
+# Dataset output directory. The default is data/dataset on the
+# project repo (good for git diffs and the small per-country
+# parquets). But the combined all_europe.parquet is 4+GB when
+# geometry is included, and the project repo lives on the
+# internal SSD (228GB, often near full). Override with the
+# OSM_DATASET_DIR env var to point at the external HDD.
+_default_dataset_dir = Path(__file__).resolve().parent.parent / "data" / "dataset"
+DATASET_DIR = Path(os.environ.get("OSM_DATASET_DIR", str(_default_dataset_dir)))
+
 # Geometry encoding: wkt (default, text), wkb (binary, ~50% smaller),
 # or none (drop entirely, just keep centroid + area).
 GEOMETRY_ENCODING = os.environ.get("OSM_POLYGON_GEOMETRY", "wkt").lower()
@@ -215,6 +224,43 @@ size_categories:
             f"{n_killed} country(ies) were killed mid-pipeline — see 'Known issues' below."
         )
 
+    # Schema description table. Includes geometry if it's included
+    # in the dataset. The columns list is built from build_schema() so
+    # it's always in sync with what the parquet actually contains.
+    schema_columns = [
+        ("osm_id", "int64", "OSM object id"),
+        ("osm_type", "string", '"way" or "relation"'),
+        ("centroid_lon", "float64", "polygon centroid longitude (WGS84)"),
+        ("centroid_lat", "float64", "polygon centroid latitude (WGS84)"),
+        ("area_km2", "float64", "polygon area in km² (Web Mercator, accurate at mid-latitudes)"),
+        ("tags", "list(string)", "OSM `key=value` tags"),
+        ("continent", "string", "Natural Earth admin0 lookup of the centroid"),
+        ("size_bin", "string", '"small" (0.1-1), "medium" (1-10), or "large" (10-100) km²'),
+        ("country", "string", "ISO-style country name"),
+        ("extract_status", "string", '"clean" (extract process ran to completion) or "killed" (extract was interrupted before completion)'),
+        ("pbf_date", "string", "date of the source PBF file (from mtime)"),
+    ]
+    if GEOMETRY_ENCODING == "wkt":
+        schema_columns.append((
+            "geometry_wkt", "string",
+            "**polygon geometry as WKT** (WGS84, well-known text). "
+            "Parse with `shapely.wkt.loads(row.geometry_wkt)`. "
+            "Default encoding; size of the combined parquet scales "
+            "with polygon complexity (~3-5x larger than centroid-only)."
+        ))
+    elif GEOMETRY_ENCODING == "wkb":
+        schema_columns.append((
+            "geometry_wkb", "binary",
+            "**polygon geometry as WKB** (WGS84, well-known binary). "
+            "Parse with `shapely.wkt.loads(row.geometry_wkb)`. "
+            "Smaller than WKT (~50% smaller) at the cost of being binary."
+        ))
+    # GEOMETRY_ENCODING == "none" → no geometry column
+
+    schema_table = "| column | type | description |\n|--------|------|-------------|\n"
+    for name, dtype, desc in schema_columns:
+        schema_table += f"| {name} | {dtype} | {desc} |\n"
+
     readme = yaml_frontmatter + f"""# osm-polygon-selection dataset
 
 A curated set of OpenStreetMap polygons across {len(countries_done)}
@@ -224,49 +270,15 @@ admin0 lookup).
 
 **Status:** {status_line}
 
-## Geographic distribution
+## What's in this dataset
 
-![Polygon distribution across Europe](map_preview.png)
+Each row is one OSM polygon (closed way or multipolygon relation) that
+passed our filter chain (see below). The polygon **geometry itself**
+is included in the row as WKT (or WKB if `OSM_POLYGON_GEOMETRY=wkb`
+is set when the dataset is built) so you can render, query, or
+reproject it directly without re-deriving from centroid+area.
 
-The map above shows a stratified sample of polygons from the
-dataset (color-coded by country, sized by area). It gives a rough
-visual sense of which European regions are well-covered and which
-are sparse.
-
-## Files
-
-- `all_europe.parquet` — all {total_polygons:,} polygons in a single file
-- `<country>.parquet` — per-country files
-- `map_preview.png` — geographic distribution preview (this README)
-- `metadata.yaml` — HuggingFace dataset viewer metadata
-- `manifest.json` — machine-readable build manifest
-- `README.md` — this file
-
-## Resources
-
-To understand where this dataset comes from and how the filters
-were designed, see these resources:
-
-- **Blog post** (long-form context): [OSM data analysis for landuse](https://noeflandre.com/posts/osm-data-analysis) on noeflandre.com. Explains the osm-stats clustering that produced the whitelist, including the arithmetic correction (the blog originally claimed 326 union base keys; the correct value is 236).
-- **GitHub repo** (code + documentation): [NoeFlandre/osm-polygon-selection](https://github.com/NoeFlandre/osm-polygon-selection). The pipeline source code, whitelist decisions, and dataset-state documentation.
-- **Related repo** (whitelist source data): [NoeFlandre/osm-stats](https://github.com/NoeFlandre/osm-stats). The TF-IDF and embeddings analyses on OSM tags that fed into the 22,075-tag whitelist.
-- **Project repo docs** (in-repo documentation): `docs/whitelist_decisions.md` (Tier A / Tier B inclusion rules) and `docs/dataset_state.md` (per-country coverage breakdown and known issues).
-
-## Schema
-
-| column | type | description |
-|--------|------|-------------|
-| osm_id | int64 | OSM object id |
-| osm_type | string | "way" or "relation" |
-| centroid_lon | float64 | polygon centroid longitude (WGS84) |
-| centroid_lat | float64 | polygon centroid latitude (WGS84) |
-| area_km2 | float64 | polygon area in km² (Web Mercator, accurate at mid-latitudes) |
-| tags | list(string) | OSM `key=value` tags |
-| continent | string | Natural Earth admin0 lookup of the centroid |
-| size_bin | string | "small" (0.1-1), "medium" (1-10), or "large" (10-100) km² |
-| country | string | ISO-style country name |
-| extract_status | string | "clean" (extract process ran to completion) or "killed" (extract was interrupted before completion) |
-| pbf_date | string | date of the source PBF file (from mtime) |
+{schema_table}
 
 ## Provenance
 
@@ -299,7 +311,7 @@ Each polygon in this dataset has passed three filters:
 
 
 def main() -> None:
-    out_dir = Path("/Users/noeflandre/osm-polygon-selection/data/dataset")
+    out_dir = DATASET_DIR
     if out_dir.exists():
         shutil.rmtree(out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -415,8 +427,16 @@ def main() -> None:
         table = pq.read_table(out_dir / f"{c['country']}.parquet")
         all_tables.append(table)
     combined = pa.concat_tables(all_tables, promote_options="default")
-    pq.write_table(combined, out_dir / "all_europe.parquet", compression="snappy")
-    print(f"  combined: {combined.num_rows} polygons -> all_europe.parquet")
+    # Write the combined parquet to the same directory as the
+    # per-country ones. If geometry is included, this can be 4-5GB
+    # and won't fit on the internal SSD (228GB, often near full).
+    # The data/ directory on the internal drive is fine for the
+    # small per-country files; for the combined file, we honor
+    # the OSM_DATASET_DIR env var if set (used by the agent to
+    # point at the external HDD when space is tight).
+    out_path = out_dir / "all_europe.parquet"
+    print(f"  combined: {combined.num_rows} polygons -> {out_path}")
+    pq.write_table(combined, out_path, compression="snappy")
 
     write_readme(out_dir, countries_done, combined.num_rows)
     write_metadata_yaml(out_dir)
