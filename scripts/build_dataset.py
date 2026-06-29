@@ -262,9 +262,18 @@ def main() -> None:
 
     # First pass: countries with a non-empty 03_classified.jsonl.
     # These produce per-country parquet files + manifest rows.
+    # IMPORTANT: only consider direct subdirectories of PROC as
+    # countries. Per-region subdirectories inside a country (e.g.
+    # processed/france/alsace/ from regional processing) are
+    # NOT countries — they are subsets of the parent country.
     countries_done = []
     for country_dir in sorted(PROC.iterdir()):
         if not country_dir.is_dir():
+            continue
+        # Skip subdirectories that live inside another country
+        # directory. processed/<country>/<region>/... is the regional
+        # layout; those are not independent countries.
+        if country_dir.parent != PROC:
             continue
         classified = country_dir / "03_classified.jsonl"
         if not classified.exists():
@@ -309,10 +318,40 @@ def main() -> None:
     # at all (i.e. Stage 0 was started but killed before reaching Stage 2/3).
     # Excludes the continent-wide "europe-latest.osm.pbf" (the parent
     # Geofabrik extract, not a country).
+    # Also excludes regional sub-PBFs of large countries (e.g. alsace,
+    # aquitaine for france) — those are subsets of their parent
+    # country, not independent countries.
     raw_dir = HDD / "raw"
+    # Countries that have a parent PBF in raw/ but are processed via
+    # regional sub-PBFs. Add new ones here as we go.
+    REGIONAL_CHILDREN = {
+        "france": {
+            "alsace", "aquitaine", "auvergne", "basse-normandie", "bourgogne",
+            "bretagne", "centre", "champagne-ardenne", "corse", "franche-comte",
+            "guadeloupe", "guyane", "haute-normandie", "ile-de-france",
+            "languedoc-roussillon", "limousin", "lorraine", "martinique",
+            "mayotte", "midi-pyrenees", "nord-pas-de-calais", "pays-de-la-loire",
+            "picardie", "poitou-charentes", "provence-alpes-cote-d-azur",
+            "reunion", "rhone-alpes",
+        },
+        "germany": {
+            "baden-wuerttemberg", "bayern", "berlin", "brandenburg", "bremen",
+            "hamburg", "hessen", "mecklenburg-vorpommern", "niedersachsen",
+            "nordrhein-westfalen", "rheinland-pfalz", "saarland", "sachsen",
+            "sachsen-anhalt", "schleswig-holstein", "thueringen",
+        },
+    }
+    # All regional children across all countries
+    ALL_REGIONAL = set()
+    for children in REGIONAL_CHILDREN.values():
+        ALL_REGIONAL.update(children)
+
     for pbf in sorted(raw_dir.glob("*-latest.osm.pbf")):
         country = pbf.name.replace("-latest.osm.pbf", "")
         if country == "europe":
+            continue
+        if country in ALL_REGIONAL:
+            # Sub-region of a larger country; not an independent country.
             continue
         if any(c["country"] == country for c in countries_done):
             continue
