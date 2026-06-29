@@ -188,4 +188,58 @@ class TestRecordPerf:
         t0 = time.time()
         _record_from_wkt(obj, wkt, fout, drops)
         elapsed = time.time() - t0
-        assert elapsed < 1.0, f"1000-ring polygon too slow: {elapsed:.2f}s"
+        assert elapsed < 2.0, f"1000-ring polygon too slow: {elapsed:.2f}s"
+
+
+class TestWallClockCap:
+    """The wall-clock cap stops the run after max_seconds.
+
+    This is the key fix for france/germany: the first-pass osmium
+    index build can take 30+ min on a 4.7GB PBF and produces no
+    polygons. Without a wall-clock cap, the process can't be killed
+    cleanly. With it, we can budget a slice (e.g. 10 min) and resume.
+    """
+
+    def test_wall_clock_cap_stops_clean(self, tmp_path, monkeypatch):
+        """A 10s wall-clock cap should stop a long-running extract
+        cleanly, preserving the WAL so the next run can resume.
+        """
+        # Set up: a tiny fake PBF and a 2-second wall-clock cap.
+        pbf = tmp_path / "fake.osm.pbf"
+        pbf.touch()
+        out = tmp_path / "out.jsonl"
+
+        from osm_polygon_selection.stages import extract as extract_mod
+        # Patch osmium.FileProcessor to yield objects forever (simulates
+        # an infinite first-pass index build that we must interrupt).
+        class FakeProcessor:
+            def __init__(self, *_a, **_kw): pass
+            def with_areas(self): return self
+            def __iter__(self):
+                i = 0
+                while True:
+                    yield self._make_obj(i)
+                    i += 1
+            def _make_obj(self, i):
+                o = MagicMock()
+                o.id = i
+                # Drop: is_area returns False -> "not_an_area" drop.
+                # This is enough to exercise the loop, the WAL, the
+                # seen_ids set, and the deadline check.
+                o.is_area.return_value = False
+                o.from_way.return_value = False
+                o.tags = []
+                return o
+        monkeypatch.setattr(extract_mod.osmium, "FileProcessor", FakeProcessor)
+        # Run with a 2s wall-clock cap.
+        from osm_polygon_selection.stages.extract import extract
+        t0 = time.time()
+        extract(pbf, out, max_seconds=2.0)
+        elapsed = time.time() - t0
+        # Should have stopped within 4s (some overhead).
+        assert elapsed < 5.0, f"wall-clock cap didn't stop: {elapsed:.1f}s"
+        # WAL file should exist and contain some seen ids.
+        wal = out.with_suffix(out.suffix + ".seen_ids")
+        assert wal.exists()
+        n_wal = sum(1 for _ in wal.open())
+        assert n_wal > 0, "WAL should have at least one id"

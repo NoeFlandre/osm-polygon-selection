@@ -280,6 +280,7 @@ def extract(
     out_path: Path,
     *,
     limit: int | None = None,
+    max_seconds: float | None = None,
 ) -> int:
     """Stream a PBF, write each polygon to JSONL. Resumable + stoppable.
 
@@ -289,6 +290,13 @@ def extract(
         limit: stop after this many NEW polygons in this run.
             None = run to completion. Used to slice a long extraction
             into manageable chunks (e.g. 10000 at a time on Europe).
+        max_seconds: stop after this many seconds of wall-clock time.
+            Used to break up the first-pass osmium index build on huge
+            PBFs (france/germany): the index phase itself can take 30+
+            min and produces no polygons, so without a wall-clock limit
+            we can't resume until it finishes. With this, we kill the
+            process at the budget, the WAL is preserved, and the next
+            resume skips the already-seen objects.
 
     Returns:
         Number of polygons written in THIS run (excludes already-WAL'd
@@ -333,7 +341,9 @@ def extract(
     last_progress = time.time()
     last_progress_count = 0
     hit_limit = False
+    hit_time_limit = False
     wal_buffer: list[str] = []
+    deadline = (start_time + max_seconds) if max_seconds is not None else None
     WAL_BATCH = 10_000  # flush WAL every N writes (~10k IDs = ~100KB buffered)
 
     def flush_wal() -> None:
@@ -381,6 +391,13 @@ def extract(
 
     with out_path.open("a") as fout, wal_path.open("a") as fwal:
         for obj in osmium.FileProcessor(str(pbf_path)).with_areas():
+            # Wall-clock limit: break the loop cleanly so we can resume
+            # without losing state. The next run skips all already-seen
+            # ids via the WAL.
+            if deadline is not None and time.time() >= deadline:
+                hit_time_limit = True
+                break
+
             osm_id = obj.id
             if osm_id in seen_ids:
                 n_skipped += 1
@@ -390,7 +407,7 @@ def extract(
                 hit_limit = True
                 break
 
-            n = _record(cast(osmium.osm.OSMObject, obj), fout, drops)
+            n = _record(cast(osmium.osm.Area, obj), fout, drops)
             # Mark the osm_id as seen regardless of whether it was
             # accepted (written) or dropped. This is what makes resume
             # truly skip work: we never re-evaluate the same id.
@@ -413,7 +430,14 @@ def extract(
     maybe_write_progress(force=True)
 
     elapsed = time.time() - start_time
-    if hit_limit:
+    if hit_time_limit:
+        _log(
+            f"wall-clock limit ({max_seconds:.0f}s) reached: "
+            f"written={n_written:,} in {elapsed:.0f}s. "
+            f"Re-run (no --max-seconds, or higher) to resume. "
+            f"Already-seen ids ({n_skipped:,}) will be skipped via WAL."
+        )
+    elif hit_limit:
         _log(
             f"limit reached: written={n_written:,} of limit={limit:,} "
             f"in {elapsed:.0f}s. Run again (no --limit, or higher) to resume."
