@@ -13,10 +13,17 @@ Each row has:
   "260627" for some Geofabrik PBFs)
 - pipeline_version: the git SHA or a hardcoded version string
 
-The geometry field is kept as WKT for compatibility with the existing
-JSONL readers. Downstream users who want Shapely can do
-`shapely.wkt.loads(row.geometry)`. We could switch to binary
-WKB for smaller file size, but WKT is more debuggable.
+Geometry: INCLUDED by default. Each row keeps the full polygon WKT
+(Or WKB if OSM_POLYGON_GEOMETRY=wkb) so downstream users can render
+the polygon, query it spatially, etc. without re-deriving it from
+centroid + area. The 03_classified.jsonl input already has the WKT
+in row["geometry"]; we just pipe it through.
+
+Format controlled by the OSM_POLYGON_GEOMETRY env var:
+
+  OSM_POLYGON_GEOMETRY=wkt    (default) - keep geometry as WKT (text)
+  OSM_POLYGON_GEOMETRY=wkb    - keep geometry as WKB (binary, ~50% smaller)
+  OSM_POLYGON_GEOMETRY=none  - drop geometry (centroid + area only)
 """
 
 import json
@@ -33,6 +40,14 @@ import pyarrow.parquet as pq
 HDD = Path("/Volumes/Seagate M3/osm-polygon-selection")
 PROC = HDD / "processed"
 PIPELINE_VERSION = "v0.1.0"
+
+# Geometry encoding: wkt (default, text), wkb (binary, ~50% smaller),
+# or none (drop entirely, just keep centroid + area).
+GEOMETRY_ENCODING = os.environ.get("OSM_POLYGON_GEOMETRY", "wkt").lower()
+if GEOMETRY_ENCODING not in ("wkt", "wkb", "none"):
+    raise SystemExit(
+        f"OSM_POLYGON_GEOMETRY must be wkt, wkb, or none; got {GEOMETRY_ENCODING!r}"
+    )
 
 
 def git_sha() -> str:
@@ -51,7 +66,7 @@ def extract_status(country: str) -> str:
 
 
 def build_schema() -> pa.Schema:
-    return pa.schema([
+    fields = [
         ("osm_id", pa.int64()),
         ("osm_type", pa.string()),
         ("centroid_lon", pa.float64()),
@@ -63,21 +78,44 @@ def build_schema() -> pa.Schema:
         ("country", pa.string()),
         ("extract_status", pa.string()),
         ("pbf_date", pa.string()),
-    ])
+    ]
+    if GEOMETRY_ENCODING == "wkt":
+        fields.append(("geometry_wkt", pa.string()))
+    elif GEOMETRY_ENCODING == "wkb":
+        fields.append(("geometry_wkb", pa.binary()))
+    # GEOMETRY_ENCODING == "none" → no geometry column
+    return pa.schema(fields)
+
+
+def _encode_geometry(row: dict) -> bytes | str | None:
+    """Extract geometry from the row in the chosen encoding.
+
+    The 03_classified.jsonl input has the WKT in row["geometry"] (a
+    string from shapely.wkt on the original PBF). We pipe it through
+    as-is for "wkt", or convert to WKB for "wkb". For "none", we
+    return None and the field is dropped.
+    """
+    wkt = row.get("geometry")
+    if not wkt or GEOMETRY_ENCODING == "none":
+        return None
+    if GEOMETRY_ENCODING == "wkt":
+        return wkt
+    # WKB: parse the WKT and serialize to binary.
+    import shapely.wkt as _shapely_wkt
+    geom = _shapely_wkt.loads(wkt)
+    return geom.wkb
 
 
 def row_to_record(row: dict, country: str, status: str, pbf_date: str) -> dict | None:
     """Convert one JSONL row + metadata into a dataset record.
 
-    Drops the WKT geometry (we keep only the centroid + area for the
-    published dataset — this is the "lightweight" version that
-    downstream classifiers and samplers actually need). The WKT is
-    huge for big countries and most users re-derive the geometry
-    from centroid + area at their own resolution.
+    Each row keeps the polygon geometry (per OSM_POLYGON_GEOMETRY
+    env var) plus centroid + area + tags. The geometry column is
+    named "geometry_wkt" (text) or "geometry_wkb" (binary).
     """
     try:
         c = row.get("centroid", [None, None])
-        return {
+        rec = {
             "osm_id": int(row["osm_id"]),
             "osm_type": str(row.get("osm_type", "")),
             "centroid_lon": float(c[0]) if c and len(c) > 0 else None,
@@ -90,6 +128,12 @@ def row_to_record(row: dict, country: str, status: str, pbf_date: str) -> dict |
             "extract_status": status,
             "pbf_date": pbf_date,
         }
+        geom = _encode_geometry(row)
+        if GEOMETRY_ENCODING == "wkt":
+            rec["geometry_wkt"] = geom
+        elif GEOMETRY_ENCODING == "wkb":
+            rec["geometry_wkb"] = geom
+        return rec
     except (KeyError, TypeError, ValueError) as e:
         print(f"  skipping malformed row in {country}: {e}", file=sys.stderr)
         return None
