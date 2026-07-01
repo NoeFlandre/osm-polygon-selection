@@ -41,15 +41,6 @@ HDD = Path("/Volumes/Seagate M3/osm-polygon-selection")
 PROC = HDD / "processed"
 PIPELINE_VERSION = "v0.1.0"
 
-# Dataset output directory. The default is data/dataset on the
-# project repo (good for git diffs and the small per-country
-# parquets). But the combined all_europe.parquet is 4+GB when
-# geometry is included, and the project repo lives on the
-# internal SSD (228GB, often near full). Override with the
-# OSM_DATASET_DIR env var to point at the external HDD.
-_default_dataset_dir = Path(__file__).resolve().parent.parent / "data" / "dataset"
-DATASET_DIR = Path(os.environ.get("OSM_DATASET_DIR", str(_default_dataset_dir)))
-
 # Geometry encoding: wkt (default, text), wkb (binary, ~50% smaller),
 # or none (drop entirely, just keep centroid + area).
 GEOMETRY_ENCODING = os.environ.get("OSM_POLYGON_GEOMETRY", "wkt").lower()
@@ -59,53 +50,25 @@ if GEOMETRY_ENCODING not in ("wkt", "wkb", "none"):
     )
 
 
-def git_sha() -> str:
-    try:
-        return subprocess.run(
-            ["git", "rev-parse", "--short", "HEAD"],
-            capture_output=True, text=True, cwd="/Users/noeflandre/osm-polygon-selection",
-        ).stdout.strip() or "unknown"
-    except Exception:
-        return "unknown"
+from osm_polygon_selection.git_meta import git_sha
+from osm_polygon_selection.extract_status import extract_status as _extract_status
+from osm_polygon_selection.paths import dataset_root
+
+DATASET_DIR = dataset_root()  # honors $OSM_DATASET_DIR
+from osm_polygon_selection.schema_defs import (
+    build_schema as _build_package_schema,
+    encode_geometry as _encode_pkg_geometry,
+    COLUMN_DESCRIPTIONS, COLUMN_TYPES,
+)
 
 
 def extract_status(country: str) -> str:
-    """True if at least one extract run finished (extract process reached end).
-
-    For countries processed via regional sub-PBFs, each sub-region has
-    its own `01_extracted_<region>.jsonl.run.json`. We accept the
-    country as "clean" if EITHER the merged run.json exists OR any
-    sub-region run.json exists (i.e., at least one extract finished).
-    """
-    country_dir = PROC / country
-    if (country_dir / "01_extracted.jsonl.run.json").exists():
-        return "clean"
-    for p in country_dir.glob("01_extracted_*.jsonl.run.json"):
-        return "clean"
-    return "killed"
+    """Wrapper that points the package function at this script's PROC root."""
+    return "clean" if _extract_status(PROC / country) else "killed"
 
 
 def build_schema() -> pa.Schema:
-    fields = [
-        ("osm_id", pa.int64()),
-        ("osm_type", pa.string()),
-        ("centroid_lon", pa.float64()),
-        ("centroid_lat", pa.float64()),
-        ("area_km2", pa.float64()),
-        ("tags", pa.list_(pa.string())),
-        ("matched_tag", pa.string()),
-        ("continent", pa.string()),
-        ("size_bin", pa.string()),
-        ("country", pa.string()),
-        ("extract_status", pa.string()),
-        ("pbf_date", pa.string()),
-    ]
-    if GEOMETRY_ENCODING == "wkt":
-        fields.append(("geometry_wkt", pa.string()))
-    elif GEOMETRY_ENCODING == "wkb":
-        fields.append(("geometry_wkb", pa.binary()))
-    # GEOMETRY_ENCODING == "none" → no geometry column
-    return pa.schema(fields)
+    return _build_package_schema(geometry_encoding=GEOMETRY_ENCODING)
 
 
 def _encode_geometry(row: dict) -> bytes | str | None:
@@ -116,15 +79,7 @@ def _encode_geometry(row: dict) -> bytes | str | None:
     as-is for "wkt", or convert to WKB for "wkb". For "none", we
     return None and the field is dropped.
     """
-    wkt = row.get("geometry")
-    if not wkt or GEOMETRY_ENCODING == "none":
-        return None
-    if GEOMETRY_ENCODING == "wkt":
-        return wkt
-    # WKB: parse the WKT and serialize to binary.
-    import shapely.wkt as _shapely_wkt
-    geom = _shapely_wkt.loads(wkt)
-    return geom.wkb
+    return _encode_pkg_geometry(row.get("geometry"), GEOMETRY_ENCODING)
 
 
 def _load_whitelist() -> set[str]:

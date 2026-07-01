@@ -1,164 +1,122 @@
-"""Tests for the per-country/combined/sample/preview subfolder layout.
+"""Tests for osm_polygon_selection.dataset_layout.
 
-The published HuggingFace dataset at
-``/Volumes/Seagate M3/osm-polygon-selection/dataset`` is organized as:
-
-    dataset/
-    ├── README.md, manifest.json, metadata.yaml      (root landing page)
-    ├── per_country/<country>/{README.md, <country>.parquet}
-    ├── combined/{README.md, all_europe.parquet}
-    ├── sample/{README.md, sample_map.jsonl}
-    └── preview/{README.md, map_preview.png}
-
-These tests pin that layout so future refactors don't drift.
+TDD red phase: written before src/osm_polygon_selection/dataset_layout.py.
 """
 
-import json
+from __future__ import annotations
+
+import shutil
 from pathlib import Path
 
 import pytest
 
-
-DATASET_ROOT = Path("/Volumes/Seagate M3/osm-polygon-selection/dataset")
-
-
-def _manifest() -> dict:
-    """Load the manifest from the real dataset root (the only manifest we trust)."""
-    return json.loads((DATASET_ROOT / "manifest.json").read_text())
-
-
-def _countries() -> list[str]:
-    """All country names from the manifest (the authoritative list)."""
-    return [c["country"] for c in _manifest()["countries"]]
+from osm_polygon_selection.dataset_layout import (
+    cleanup_loose_root_files,
+    ensure_layout,
+    human_size,
+    move_combined,
+    move_country_files,
+    move_preview,
+    move_sample,
+)
 
 
-@pytest.fixture(scope="module")
-def countries() -> list[str]:
-    return _countries()
-
-
-# --- layout invariants -----------------------------------------------------
-
-
-class TestLayoutStructure:
-    """Top-level invariants of the dataset layout."""
-
-    def test_layout_per_country_folders_exist(self, countries):
-        for c in countries:
-            assert (DATASET_ROOT / "per_country" / c).is_dir(), (
-                f"missing per_country/{c}/ directory"
-            )
-
-    def test_layout_each_country_has_parquet(self, countries):
-        for c in countries:
-            pq = DATASET_ROOT / "per_country" / c / f"{c}.parquet"
-            assert pq.is_file(), f"missing per_country/{c}/{c}.parquet"
-            assert pq.stat().st_size > 0, f"empty per_country/{c}/{c}.parquet"
-
-    def test_layout_each_country_has_readme(self, countries):
-        for c in countries:
-            assert (DATASET_ROOT / "per_country" / c / "README.md").is_file(), (
-                f"missing per_country/{c}/README.md"
-            )
-
-    def test_layout_combined_folder_has_all_europe_parquet(self):
-        assert (DATASET_ROOT / "combined" / "all_europe.parquet").is_file()
-
-    def test_layout_combined_folder_has_readme(self):
-        assert (DATASET_ROOT / "combined" / "README.md").is_file()
-
-    def test_layout_sample_folder_has_jsonl(self):
-        assert (DATASET_ROOT / "sample" / "sample_map.jsonl").is_file()
-        # The sample file we copied from /tmp had 4,204 polygons
-        # (per sample_for_map.py). Keep that invariant.
-        with (DATASET_ROOT / "sample" / "sample_map.jsonl").open() as f:
-            n = sum(1 for _ in f)
-        assert n >= 4000, f"sample_map.jsonl unexpectedly small: {n} lines"
-
-    def test_layout_sample_folder_has_readme(self):
-        assert (DATASET_ROOT / "sample" / "README.md").is_file()
-
-    def test_layout_preview_folder_has_png(self):
-        assert (DATASET_ROOT / "preview" / "map_preview.png").is_file()
-
-    def test_layout_preview_folder_has_readme(self):
-        assert (DATASET_ROOT / "preview" / "README.md").is_file()
-
-    def test_layout_root_has_readme_manifest_metadata(self):
-        for p in ("README.md", "manifest.json", "metadata.yaml"):
-            assert (DATASET_ROOT / p).is_file(), f"missing root {p}"
-
-    def test_layout_no_loose_parquets_at_root(self):
-        """No .parquet files directly under dataset/ (they belong in subfolders)."""
-        bad = sorted(DATASET_ROOT.glob("*.parquet"))
-        assert bad == [], f"loose parquet(s) at dataset/ root: {bad}"
-
-    def test_layout_no_loose_png_at_root(self):
-        """No .png files directly under dataset/ (preview belongs in preview/)."""
-        bad = sorted(DATASET_ROOT.glob("*.png"))
-        assert bad == [], f"loose png(s) at dataset/ root: {bad}"
-
-    def test_layout_no_loose_jsonl_at_root(self):
-        """No .jsonl files directly under dataset/ (sample belongs in sample/)."""
-        bad = sorted(DATASET_ROOT.glob("*.jsonl"))
-        assert bad == [], f"loose jsonl(s) at dataset/ root: {bad}"
-
-
-# --- README content --------------------------------------------------------
-
-
-class TestReadmeContent:
-    """The README.md files must carry the right content, not just exist."""
-
-    def test_layout_country_readme_has_required_fields(self, countries):
-        manifest_by_country = {c["country"]: c for c in _manifest()["countries"]}
-        for c in countries:
-            readme = (DATASET_ROOT / "per_country" / c / "README.md").read_text()
-            info = manifest_by_country[c]
-            # Country name (case-insensitive substring)
-            assert c.lower() in readme.lower(), (
-                f"country README for {c!r} doesn't mention the country name"
-            )
-            # Polygon count (formatted with thousands separator, e.g. "1,131,888")
-            expected = f"{info['n_polygons']:,}"
-            assert expected in readme, (
-                f"country README for {c!r} missing polygon count {expected!r}"
-            )
-            # Extract status
-            assert info["extract_status"] in readme, (
-                f"country README for {c!r} missing extract_status "
-                f"{info['extract_status']!r}"
-            )
-
-    def test_layout_root_readme_links_subfolders(self):
-        readme = (DATASET_ROOT / "README.md").read_text()
+class TestEnsureLayout:
+    def test_creates_required_subfolders(self, tmp_path: Path) -> None:
+        ensure_layout(tmp_path)
         for sub in ("per_country", "combined", "sample", "preview"):
-            assert sub in readme, f"root README.md doesn't reference '{sub}/'"
-            # Must be a real markdown link or path, not just the bare substring.
-            # We accept either `./<sub>/` (root-relative) or `<sub>/` directly.
-            assert ("./" + sub) in readme or (sub + "/") in readme, (
-                f"root README.md references '{sub}' but not as a path"
-            )
+            assert (tmp_path / sub).is_dir()
 
-    def test_layout_folder_readmes_are_not_empty(self):
-        targets = [
-            DATASET_ROOT / "per_country" / "README.md",
-            DATASET_ROOT / "combined" / "README.md",
-            DATASET_ROOT / "sample" / "README.md",
-            DATASET_ROOT / "preview" / "README.md",
-        ]
-        for p in targets:
-            assert p.is_file(), f"missing folder README: {p}"
-            text = p.read_text().strip()
-            assert text, f"folder README is empty: {p}"
+    def test_idempotent(self, tmp_path: Path) -> None:
+        ensure_layout(tmp_path)
+        ensure_layout(tmp_path)  # second call no-op
+        for sub in ("per_country", "combined", "sample", "preview"):
+            assert (tmp_path / sub).is_dir()
 
 
-# --- module-level sanity --------------------------------------------------
+class TestMoveCountryFiles:
+    def test_moves_parquets_into_subfolders(self, tmp_path: Path) -> None:
+        ensure_layout(tmp_path)
+        # Simulate a built dataset: flat per-country parquets at root
+        for c in ("albania", "andorra", "italy"):
+            (tmp_path / f"{c}.parquet").touch()
+        moved = move_country_files(tmp_path, ["albania", "andorra", "italy"])
+        assert moved == 3
+        for c in ("albania", "andorra", "italy"):
+            assert (tmp_path / "per_country" / c / f"{c}.parquet").exists()
+            assert not (tmp_path / f"{c}.parquet").exists()
+
+    def test_skips_missing_country(self, tmp_path: Path) -> None:
+        ensure_layout(tmp_path)
+        moved = move_country_files(tmp_path, ["ghost"])
+        assert moved == 0
 
 
-def test_manifest_lists_at_least_40_european_countries():
-    """We expect ~46 European countries (Geofabrik europe subregions)."""
-    countries = _countries()
-    assert len(countries) >= 40, (
-        f"expected >=40 countries from manifest, got {len(countries)}"
-    )
+class TestMoveCombined:
+    def test_moves_all_europe_parquet(self, tmp_path: Path) -> None:
+        ensure_layout(tmp_path)
+        (tmp_path / "all_europe.parquet").touch()
+        assert move_combined(tmp_path) is True
+        assert (tmp_path / "combined" / "all_europe.parquet").exists()
+
+    def test_returns_false_when_missing(self, tmp_path: Path) -> None:
+        ensure_layout(tmp_path)
+        assert move_combined(tmp_path) is False
+
+
+class TestMoveSample:
+    def test_copies_sample(self, tmp_path: Path) -> None:
+        ensure_layout(tmp_path)
+        src = tmp_path / "src_sample.jsonl"
+        src.write_text("{}\n")
+        assert move_sample(tmp_path, src) is True
+        assert (tmp_path / "sample" / "sample_map.jsonl").exists()
+
+
+class TestMovePreview:
+    def test_copies_preview(self, tmp_path: Path) -> None:
+        ensure_layout(tmp_path)
+        src = tmp_path / "src_map.png"
+        src.write_bytes(b"\x89PNG\r\n\x1a\n")
+        assert move_preview(tmp_path, src) is True
+        assert (tmp_path / "preview" / "map_preview.png").exists()
+
+
+class TestCleanupLooseRootFiles:
+    def test_deletes_loose_parquets(self, tmp_path: Path) -> None:
+        ensure_layout(tmp_path)
+        for c in ("albania", "andorra"):
+            (tmp_path / f"{c}.parquet").touch()
+            (tmp_path / "per_country" / c).mkdir(parents=True, exist_ok=True)
+        deleted = cleanup_loose_root_files(tmp_path)
+        assert deleted == 2
+        for c in ("albania", "andorra"):
+            assert not (tmp_path / f"{c}.parquet").exists()
+
+    def test_does_not_delete_kept_files(self, tmp_path: Path) -> None:
+        ensure_layout(tmp_path)
+        (tmp_path / "README.md").touch()
+        (tmp_path / "manifest.json").touch()
+        (tmp_path / "metadata.yaml").touch()
+        deleted = cleanup_loose_root_files(tmp_path)
+        assert deleted == 0
+        assert (tmp_path / "README.md").exists()
+        assert (tmp_path / "manifest.json").exists()
+        assert (tmp_path / "metadata.yaml").exists()
+
+
+class TestHumanSize:
+    def test_bytes(self) -> None:
+        assert human_size(500) == "500 B"
+
+    def test_kb(self) -> None:
+        out = human_size(2048)
+        assert "KB" in out
+
+    def test_mb(self) -> None:
+        out = human_size(2 * 1024 * 1024)
+        assert "MB" in out
+
+    def test_gb(self) -> None:
+        out = human_size(3 * 1024 * 1024 * 1024)
+        assert "GB" in out

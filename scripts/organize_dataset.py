@@ -39,6 +39,26 @@ from datetime import datetime
 from pathlib import Path
 from typing import Iterable
 
+from osm_polygon_selection.country_table import build_country_table
+from osm_polygon_selection.dataset_layout import (
+    SUBFOLDERS,
+    cleanup_loose_root_files,
+    ensure_layout,
+    move_combined,
+    move_country_files,
+    move_preview,
+    move_sample,
+)
+from osm_polygon_selection.git_meta import git_short_sha
+from osm_polygon_selection.paths import dataset_root
+from osm_polygon_selection.pbf_meta import geofabrik_url, pbf_date_for
+from osm_polygon_selection.readme_render import (
+    PIPELINE_VERSION_DEFAULT,
+    build_country_readme,
+    build_folder_readme,
+    write_metadata_yaml,
+)
+
 
 DEFAULT_ROOT = Path("/Volumes/Seagate M3/osm-polygon-selection/dataset")
 

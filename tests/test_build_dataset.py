@@ -124,9 +124,10 @@ class TestDatasetDir:
     """The dataset output directory is configurable via OSM_DATASET_DIR."""
 
     def test_default_dataset_dir_under_repo(self):
-        # Default should be under the project repo
-        assert build_dataset.DATASET_DIR.name == "dataset"
-        assert "data" in build_dataset.DATASET_DIR.parts
+        # Default should be a sibling of the project repo (ext-HDD-friendly)
+        assert build_dataset.DATASET_DIR.name == "osm-polygon-selection-dataset"
+        # parents[1] of scripts/build_dataset.py = project root; its parent is the dataset root's parent
+        assert build_dataset.DATASET_DIR.parent == Path(build_dataset.__file__).resolve().parents[1].parent
 
     def test_external_hdd_overrides(self):
         old = os.environ.get("OSM_DATASET_DIR")

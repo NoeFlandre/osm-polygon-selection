@@ -1,0 +1,46 @@
+"""PBF metadata: dates and Geofabrik URLs.
+
+Tiny helpers used by the build/publish pipeline to record provenance
+on each country (when the source PBF was fetched, where it came from).
+"""
+
+from __future__ import annotations
+
+from datetime import datetime
+from pathlib import Path
+
+# Default raw-PBF directory on the external HDD.
+DEFAULT_RAW_DIR = Path("/Volumes/Seagate M3/osm-polygon-selection/raw")
+
+
+def geofabrik_url(country: str) -> str:
+    """Return the Geofabrik overview URL for a country.
+
+    All Geofabrik europe/ sub-regions use the same pattern:
+    ``https://download.geofabrik.de/europe/<country>.html``.
+    """
+    return f"https://download.geofabrik.de/europe/{country}.html"
+
+
+def format_pbf_date(raw: str) -> str:
+    """Normalize a PBF date string to YYYY-MM-DD or 'unknown'.
+
+    Pass-through for already-formatted ISO dates; defensive for
+    empty/unknown strings.
+    """
+    if not raw or raw == "unknown":
+        return "unknown"
+    return raw
+
+
+def pbf_date_for(country: str, raw_dir: Path = DEFAULT_RAW_DIR) -> str:
+    """Return the mtime of ``<country>-latest.osm.pbf`` as YYYY-MM-DD.
+
+    Returns "unknown" if the PBF doesn't exist at the conventional
+    location.
+    """
+    pbf = raw_dir / f"{country}-latest.osm.pbf"
+    if not pbf.is_file():
+        return "unknown"
+    mtime = pbf.stat().st_mtime
+    return datetime.fromtimestamp(mtime).strftime("%Y-%m-%d")
