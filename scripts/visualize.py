@@ -32,6 +32,14 @@ COUNTRY_COLORS = [
     "#b2df8a",  # light green
 ]
 
+# Default --limit. Set high enough to cover the current sample
+# (4418 polygons, growing) plus a safety margin. The previous
+# default of 2000 truncated to ~10 alphabetically-first countries,
+# making Spain, Portugal, Turkey, Greece, Sweden, Norway, Finland,
+# Ukraine, etc. invisible on the rendered map. 5000 covers the
+# current sample with margin; bump if the sample grows.
+MAX_DEFAULT_LIMIT = 5000
+
 
 def color_for_country(country: str | None, country_to_color: dict[str, str]) -> str:
     if country is None:
@@ -47,7 +55,7 @@ def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("jsonl", type=Path, help="Path to .jsonl file")
     parser.add_argument("out", type=Path, help="Path to output .html file")
-    parser.add_argument("--limit", type=int, default=2000, help="Max polygons to plot")
+    parser.add_argument("--limit", type=int, default=MAX_DEFAULT_LIMIT, help="Max polygons to plot")
     args = parser.parse_args()
 
     # First pass: count countries for color assignment.
@@ -79,6 +87,44 @@ def main() -> None:
         center, zoom = [47.0, 9.5], 4
 
     fmap = folium.Map(location=center, zoom_start=zoom)
+
+    # If the sample spans a wide geographic area, auto-fit the bounds
+    # so all polygons are visible (not just the first one). We compute
+    # the bbox from a robust percentile (5th..95th) to avoid outliers
+    # like France's overseas territories (lon -60, lat -21) pulling
+    # the map to fit the whole globe.
+    if rows_buffer:
+        lons = []
+        lats = []
+        for row in rows_buffer:
+            if "centroid_lon" in row and "centroid_lat" in row:
+                lon, lat = row["centroid_lon"], row["centroid_lat"]
+            elif "centroid" in row:
+                lon, lat = row["centroid"]
+            else:
+                continue
+            if lon is None or lat is None:
+                continue
+            lons.append(lon)
+            lats.append(lat)
+        if lons and lats:
+            lons_sorted = sorted(lons)
+            lats_sorted = sorted(lats)
+            n = len(lons_sorted)
+            # 5th and 95th percentile bounds (robust to outliers).
+            lo_idx = max(0, int(n * 0.05))
+            hi_idx = min(n - 1, int(n * 0.95))
+            min_lon, max_lon = lons_sorted[lo_idx], lons_sorted[hi_idx]
+            min_lat, max_lat = lats_sorted[lo_idx], lats_sorted[hi_idx]
+            # 5% padding so points don't get clipped at the edge.
+            lon_pad = max((max_lon - min_lon) * 0.05, 0.5)
+            lat_pad = max((max_lat - min_lat) * 0.05, 0.5)
+            fmap.fit_bounds(
+                [
+                    [min_lat - lat_pad, min_lon - lon_pad],
+                    [max_lat + lat_pad, max_lon + lon_pad],
+                ]
+            )
 
     for row in rows_buffer:
         country = row.get("country")
