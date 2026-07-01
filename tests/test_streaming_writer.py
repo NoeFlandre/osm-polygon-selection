@@ -23,6 +23,7 @@ from __future__ import annotations
 import json
 import sys
 import tempfile
+import time
 from pathlib import Path
 
 import pyarrow as pa
@@ -298,3 +299,133 @@ class TestWriteJsonlToParquet:
         assert n == n_rows
         t = pq.read_table(out)
         assert t.num_rows == n_rows
+
+    def test_faster_than_python_json_loads(self, tmp_path: Path) -> None:
+        """Sanity check: the optimized writer should be measurably
+        faster than calling json.loads() per row (Python's stdlib
+        JSON parser). The pyarrow C-level JSON parser
+        (``pa.json.read_json``) is much faster.
+
+        This test runs both paths on 20k rows and asserts the
+        optimized path is at least 1.2x faster (loose threshold
+        for CI noise).
+        """
+        from osm_polygon_selection.streaming_writer import (
+            _write_jsonl_to_parquet_python_json,
+            write_jsonl_to_parquet,
+        )
+        jsonl = tmp_path / "in.jsonl"
+        out_optimized = tmp_path / "optimized.parquet"
+        out_python = tmp_path / "python.parquet"
+        if out_optimized.exists():
+            out_optimized.unlink()
+        if out_python.exists():
+            out_python.unlink()
+        n_rows = 20_000
+        with jsonl.open("w") as f:
+            for i in range(1, n_rows + 1):
+                f.write(json.dumps(_row(i)) + "\n")
+
+        # Python json.loads path (for benchmarking only).
+        t0 = time.perf_counter()
+        _write_jsonl_to_parquet_python_json(
+            jsonl_path=jsonl,
+            parquet_path=out_python,
+            country="italy",
+            extract_status="clean",
+            pbf_date="2026-06-26",
+        )
+        py_elapsed = time.perf_counter() - t0
+
+        # Optimized pa.json.read_json path.
+        t0 = time.perf_counter()
+        write_jsonl_to_parquet(
+            jsonl_path=jsonl,
+            parquet_path=out_optimized,
+            country="italy",
+            extract_status="clean",
+            pbf_date="2026-06-26",
+        )
+        opt_elapsed = time.perf_counter() - t0
+
+        # The optimized path should be at least 1.2x faster.
+        # (On a typical laptop it's ~2-3x.)
+        assert opt_elapsed < py_elapsed * 0.83, (
+            f"optimized={opt_elapsed:.2f}s, python={py_elapsed:.2f}s; "
+            f"speedup={py_elapsed / opt_elapsed:.2f}x; expected >= 1.2x"
+        )
+
+    def test_uses_pa_json_for_parsing(self, tmp_path: Path, monkeypatch) -> None:
+        """Pin that the optimized path uses pa.json.read_json
+        (the C-level parser), NOT the per-row json.loads path.
+
+        We monkeypatch ``osm_polygon_selection.streaming_writer.paj.read_json``
+        (the module-level reference) to track calls; the optimized
+        path must call it at least once.
+        """
+        from osm_polygon_selection import streaming_writer
+        jsonl = tmp_path / "in.jsonl"
+        out = tmp_path / "out.parquet"
+        _write_jsonl(jsonl, [_row(i) for i in range(1, 11)])
+
+        # Track paj.read_json calls on the module-level import.
+        original = streaming_writer.paj.read_json
+        call_log: list[Path] = []
+        def _tracking_read_json(source, *args, **kwargs):
+            call_log.append(Path(str(source)))
+            return original(source, *args, **kwargs)
+        monkeypatch.setattr(
+            streaming_writer.paj, "read_json", _tracking_read_json
+        )
+
+        streaming_writer.write_jsonl_to_parquet(
+            jsonl_path=jsonl,
+            parquet_path=out,
+            country="italy",
+            extract_status="clean",
+            pbf_date="2026-06-26",
+        )
+        assert call_log, "pa.json.read_json was never called; optimized path is not active"
+
+    def test_default_compression_is_zstd(self, tmp_path: Path) -> None:
+        """Default compression must be zstd (smaller than snappy,
+        ~36% on typical OSM data) at level 1 (fast decode).
+        """
+        from osm_polygon_selection.streaming_writer import write_jsonl_to_parquet
+        jsonl = tmp_path / "in.jsonl"
+        out = tmp_path / "out.parquet"
+        _write_jsonl(jsonl, [_row(i) for i in range(1, 101)])
+        write_jsonl_to_parquet(
+            jsonl_path=jsonl,
+            parquet_path=out,
+            country="italy",
+            extract_status="clean",
+            pbf_date="2026-06-26",
+        )
+        meta = pq.read_metadata(out)
+        # 0=uncompressed, 1=snappy, 2=gzip, 3=lzo, 4=brotli, 5=zstd, 6=lz4
+        codec_names = {
+            0: "uncompressed", 1: "snappy", 2: "gzip", 3: "lzo",
+            4: "brotli", 5: "zstd", 6: "lz4",
+        }
+        assert meta.row_group(0).column(0).compression in ("ZSTD", "zstd"), (
+            f"expected zstd compression, got {codec_names.get(meta.row_group(0).column(0).compression, meta.row_group(0).column(0).compression)}"
+        )
+
+    def test_explicit_compression_override(self, tmp_path: Path) -> None:
+        """The compression param must override the default (test
+        we can still write snappy for legacy compat)."""
+        from osm_polygon_selection.streaming_writer import write_jsonl_to_parquet
+        jsonl = tmp_path / "in.jsonl"
+        out = tmp_path / "out.parquet"
+        _write_jsonl(jsonl, [_row(i) for i in range(1, 101)])
+        write_jsonl_to_parquet(
+            jsonl_path=jsonl,
+            parquet_path=out,
+            country="italy",
+            extract_status="clean",
+            pbf_date="2026-06-26",
+            compression="snappy",
+        )
+        meta = pq.read_metadata(out)
+        assert meta.row_group(0).column(0).compression in ("SNAPPY", "snappy")

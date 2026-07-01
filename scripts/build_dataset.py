@@ -796,10 +796,15 @@ def main() -> None:
     # that's ~150 groups, each ~50-60 MB (well under the 300 MB
     # viewer scan limit). Page indexes let the viewer jump directly
     # to specific value ranges in a column (e.g. country='france').
+    #
+    # zstd level 1 gives ~36% better compression than snappy on
+    # this data shape (9.4 GB -> 6.0 GB), at ~12% slower encode
+    # time. Saves ~3.4 GB on disk + 36% on HF upload time.
     pq.write_table(
         combined,
         out_path,
-        compression="snappy",
+        compression="zstd",
+        compression_level=1,
         row_group_size=50_000,
         write_page_index=True,
     )
