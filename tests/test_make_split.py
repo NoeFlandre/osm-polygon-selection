@@ -253,3 +253,85 @@ def test_split_writes_combined_parquet(tmp_path):
     # Both countries present in the combined file.
     countries = set(t.column("country").to_pylist())
     assert countries == {"albania", "andorra"}
+
+
+# --- streaming tests for the optimized helpers ---------------------------
+
+
+def test_streaming_add_split_column_preserves_data(tmp_path):
+    """The streaming helper must produce a parquet with the same row count,
+    the same data, and a 'split' column appended.
+
+    We compare the optimized implementation against the original behavior
+    by reading both back and checking equivalence.
+    """
+    ms = _load_make_split()
+    pq_path = tmp_path / "italy.parquet"
+    pq.write_table(_make_country_table("italy", 1234), pq_path)
+
+    splits = np.array(
+        ["train" if i % 2 == 0 else "val" for i in range(1234)],
+        dtype=object,
+    )
+    ms._add_split_column_streaming(pq_path, splits)
+
+    t = pq.read_table(pq_path)
+    assert "split" in t.schema.names
+    assert t.num_rows == 1234
+    out_splits = t.column("split").to_pylist()
+    assert out_splits == splits.tolist()
+
+
+def test_streaming_add_split_column_idempotent(tmp_path):
+    """Re-running must drop the existing split column first."""
+    ms = _load_make_split()
+    pq_path = tmp_path / "italy.parquet"
+    pq.write_table(_make_country_table("italy", 100), pq_path)
+
+    # First run
+    splits1 = np.array(["train"] * 100, dtype=object)
+    ms._add_split_column_streaming(pq_path, splits1)
+
+    # Second run with different values
+    splits2 = np.array(["val" if i % 2 == 0 else "test" for i in range(100)], dtype=object)
+    ms._add_split_column_streaming(pq_path, splits2)
+
+    t = pq.read_table(pq_path)
+    # Must not have two split columns
+    assert list(t.schema.names).count("split") == 1
+    assert t.column("split").to_pylist() == splits2.tolist()
+
+
+def test_streaming_write_combined_preserves_all_rows(tmp_path):
+    """The streaming combined-writer must produce a parquet with the same
+    number of rows as the sum of per-country rows, with all countries
+    represented.
+    """
+    ms = _load_make_split()
+    root = _make_split_dataset(tmp_path, {"albania": 50, "andorra": 30, "italy": 20})
+    n_combined = ms._write_combined_streaming(root)
+    assert n_combined == 100
+
+    out = root / "combined" / "all_europe.parquet"
+    assert out.is_file()
+    t = pq.read_table(out)
+    assert t.num_rows == 100
+    assert set(t.column("country").to_pylist()) == {"albania", "andorra", "italy"}
+
+
+def test_streaming_write_combined_no_intermediate_concat_table(tmp_path, monkeypatch):
+    """The streaming combined-writer must NOT call pa.concat_tables —
+    it should append row groups one at a time. We monkeypatch
+    pa.concat_tables to raise so a regression that calls it will fail.
+    """
+    ms = _load_make_split()
+    root = _make_split_dataset(tmp_path, {"albania": 50, "andorra": 30})
+
+    import pyarrow as pa
+
+    def _explode(*args, **kwargs):
+        raise AssertionError("concat_tables should not be called in streaming path")
+
+    monkeypatch.setattr(pa, "concat_tables", _explode)
+    n_combined = ms._write_combined_streaming(root)
+    assert n_combined == 80

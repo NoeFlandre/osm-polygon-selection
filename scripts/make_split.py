@@ -132,6 +132,83 @@ def _add_split_column(parquet_path: Path, splits: np.ndarray) -> None:
     )
 
 
+def _add_split_column_streaming(parquet_path: Path, splits: np.ndarray) -> None:
+    """Streaming alternative to ``_add_split_column``.
+
+    Reads the source parquet one row group at a time, appends the
+    pre-computed split column to each row group's table, and writes
+    it back via ``ParquetWriter.write_batch``. Memory cost is
+    O(ROW_GROUP_SIZE) per row group instead of O(table size).
+
+    The output schema matches ``_add_split_column``: same data + a
+    trailing ``split`` (string) column, with small row groups and
+    page indexes enabled.
+    """
+    import os
+    import tempfile
+
+    src = pq.ParquetFile(parquet_path)
+    base_schema = src.schema_arrow
+    has_split = "split" in base_schema.names
+    if has_split:
+        # Re-run case: drop split from the schema so the new column
+        # can be appended freshly.
+        new_fields = [f for f in base_schema if f.name != "split"]
+        new_schema = pa.schema(new_fields + [pa.field("split", _SPLIT_TYPE)])
+    else:
+        new_schema = base_schema.append(pa.field("split", _SPLIT_TYPE))
+
+    # Write to a sibling tempfile, then atomically rename.
+    tmp_dir = parquet_path.parent
+    fd, tmp_path = tempfile.mkstemp(
+        prefix=".split_", suffix=".parquet", dir=str(tmp_dir),
+    )
+    os.close(fd)
+    try:
+        writer = pq.ParquetWriter(
+            tmp_path,
+            new_schema,
+            compression="snappy",
+            write_page_index=True,
+        )
+        try:
+            offset = 0
+            for rg_idx in range(src.num_row_groups):
+                # Read one row group (all columns, including any pre-existing
+                # split). Memory cost is bounded by the row group size.
+                # read_row_group returns a Table, which we convert to a
+                # RecordBatch for write_batch.
+                tbl = src.read_row_group(rg_idx)
+                batch = pa.RecordBatch.from_arrays(
+                    [tbl.column(i).combine_chunks() for i in range(tbl.num_columns)],
+                    schema=tbl.schema,
+                )
+                rg_rows = batch.num_rows
+                rg_splits = pa.array(
+                    splits[offset:offset + rg_rows].tolist(), type=_SPLIT_TYPE,
+                )
+                if has_split:
+                    # Drop the existing split column.
+                    idx = batch.schema.get_field_index("split")
+                    batch = batch.remove_column(idx)
+                batch = batch.append_column("split", rg_splits)
+                # Truncate to ROW_GROUP_SIZE chunks so HF viewer stays
+                # within its 300 MB scan limit per row group.
+                pos = 0
+                while pos < rg_rows:
+                    end = min(pos + ROW_GROUP_SIZE, rg_rows)
+                    writer.write_batch(batch.slice(pos, end - pos))
+                    pos = end
+                offset += rg_rows
+        finally:
+            writer.close()
+        os.replace(tmp_path, parquet_path)
+    except Exception:
+        if Path(tmp_path).is_file():
+            os.unlink(tmp_path)
+        raise
+
+
 def _write_combined(root: Path) -> int:
     """Rebuild combined/all_europe.parquet from per-country parquets.
 
@@ -158,6 +235,79 @@ def _write_combined(root: Path) -> int:
         write_page_index=True,
     )
     return combined.num_rows
+
+
+def _write_combined_streaming(root: Path) -> int:
+    """Streaming alternative to ``_write_combined``.
+
+    Concatenates per-country parquets WITHOUT materializing them all
+    in memory: walks each parquet's row groups in order and writes
+    them one at a time to ``combined/all_europe.parquet`` via
+    ``ParquetWriter.write_batch``.
+
+    Returns the number of rows written.
+    """
+    import os
+    import tempfile
+
+    manifest = _read_manifest(root)
+    # Use the schema of the first non-empty per-country parquet.
+    base_schema = None
+    for c_info in manifest["countries"]:
+        c = c_info["country"]
+        pq_path = root / "per_country" / c / f"{c}.parquet"
+        if pq_path.is_file():
+            base_schema = pq.read_schema(pq_path)
+            break
+    if base_schema is None:
+        raise RuntimeError("no per-country parquets to combine")
+
+    out = root / "combined" / "all_europe.parquet"
+    out.parent.mkdir(parents=True, exist_ok=True)
+    fd, tmp_path = tempfile.mkstemp(
+        prefix=".combined_", suffix=".parquet", dir=str(out.parent),
+    )
+    os.close(fd)
+    total_rows = 0
+    try:
+        writer = pq.ParquetWriter(
+            tmp_path,
+            base_schema,
+            compression="snappy",
+            write_page_index=True,
+        )
+        try:
+            for c_info in manifest["countries"]:
+                c = c_info["country"]
+                pq_path = root / "per_country" / c / f"{c}.parquet"
+                if not pq_path.is_file():
+                    continue
+                src = pq.ParquetFile(pq_path)
+                for rg_idx in range(src.num_row_groups):
+                    # read_row_group returns a Table; convert to RecordBatch.
+                    tbl = src.read_row_group(rg_idx)
+                    batch = pa.RecordBatch.from_arrays(
+                        [tbl.column(i).combine_chunks() for i in range(tbl.num_columns)],
+                        schema=tbl.schema,
+                    )
+                    # Re-chunk the row group into smaller slices so the
+                    # combined file respects ROW_GROUP_SIZE (HF viewer
+                    # wants < 300 MB per row group).
+                    pos = 0
+                    rg_rows = batch.num_rows
+                    while pos < rg_rows:
+                        end = min(pos + ROW_GROUP_SIZE, rg_rows)
+                        writer.write_batch(batch.slice(pos, end - pos))
+                        pos = end
+                    total_rows += rg_rows
+        finally:
+            writer.close()
+        os.replace(tmp_path, out)
+    except Exception:
+        if Path(tmp_path).is_file():
+            os.unlink(tmp_path)
+        raise
+    return total_rows
 
 
 # ---------------------------------------------------------------------------
@@ -204,7 +354,7 @@ def make_split(
             continue
 
         splits = assign_split_for_country(n, idx, seed, ratios)
-        _add_split_column(pq_path, splits)
+        _add_split_column_streaming(pq_path, splits)
 
         # Tally.
         unique, c_counts = np.unique(splits, return_counts=True)
@@ -220,7 +370,7 @@ def make_split(
         )
 
     # Rebuild combined parquet.
-    n_combined = _write_combined(root)
+    n_combined = _write_combined_streaming(root)
     print(f"\ncombined/all_europe.parquet rebuilt with {n_combined:,} rows")
 
     out_manifest = {
