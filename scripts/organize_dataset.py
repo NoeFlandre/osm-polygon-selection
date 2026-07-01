@@ -316,6 +316,22 @@ REGIONAL_SUB_PBFS: dict[str, list[str]] = {
 # per-country pages (https://download.geofabrik.de/europe/). These
 # give the country README a useful blurb, not just stats.
 COUNTRY_NOTES: dict[str, str] = {
+    "georgia": "Caucasus country with the Greater and Lesser Caucasus "
+               "mountain ranges forming the northern border. OSM coverage "
+               "is good in Tbilisi and along the Black Sea coast. "
+               "Source: Geofabrik Europe/Georgia extract (note: Geofabrik "
+               "still files it under 'europe/' despite being in Asia — "
+               "we keep that placement for consistency with the dataset).",
+    "ireland-and-northern-ireland": "Combined extract covering the "
+               "Republic of Ireland and Northern Ireland (UK). The "
+               "Geofabrik page offers this as a single PBF rather than "
+               "two separate ones. OSM coverage is strong in Dublin, "
+               "Belfast, and the major road network.",
+    "macedonia": "Landlocked Balkan country, renamed in 2019 to "
+               "'North Macedonia' but Geofabrik still publishes the "
+               "PBF under the legacy 'macedonia' name. Coverage is "
+               "good around Skopje and the major valleys; the "
+               "mountainous west is sparser.",
     "albania": "Albania's OSM coverage has grown sharply since 2017; "
                "Tirana and the coastal strip are well-mapped. "
                "Source: Geofabrik Europe/Albania extract.",

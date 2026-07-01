@@ -50,24 +50,27 @@ for the rationale.
 
 ## Coverage
 
-46 European countries processed through Stages 0-3 as of 1 July 2026
-(git SHA d971391).
+**49 European countries processed through Stages 0-3** as of 1 July
+2026 (matches every sub-region published under Geofabrik's
+`/europe/` index, minus the 4 special overlapping regions:
+`alps`, `britain-and-ireland`, `dach`, `great-britain`).
 
-- **All 46 countries are extracted end-to-end.** No country is
-  currently killed-mid-pipeline. The eight countries that were
-  previously killed (italy, netherlands, norway, poland, spain,
-  united-kingdom, france, germany) have been re-extracted via
-  Geofabrik regional sub-PBFs (one region at a time, no
-  `--max-seconds` cap). Each sub-PBF ran to completion, then the
-  per-region outputs were merged into the country's
-  `01_extracted.jsonl` before Stages 2 and 3 ran on the merged file.
-- The dataset also got a new `matched_tag` column showing the first
+- **All 49 countries are extracted end-to-end.** No country is
+  currently killed-mid-pipeline.
+- The 3 most-recent additions (`georgia`, `ireland-and-northern-ireland`,
+  `macedonia`) were processed via the standard country-PBF path
+  (single PBF, no regional sub-PBFs needed).
+- The 8 large countries that were previously killed (italy,
+  netherlands, norway, poland, spain, united-kingdom, france,
+  germany) have been re-extracted via Geofabrik regional sub-PBFs
+  (one region at a time, no `--max-seconds` cap).
+- The dataset also has a `matched_tag` column showing the first
   whitelist tag each polygon matched. For countries whose
   `03_classified.jsonl` was built before this column existed, it is
   backfilled at build time from `row.tags` against the cached
   22,075-tag whitelist, avoiding a full re-run of Stage 2.
 
-### Total classified polygons: 7,112,375 (46 countries)
+### Total classified polygons: 7,302,782 (49 countries)
 
 ### Per-country breakdown
 

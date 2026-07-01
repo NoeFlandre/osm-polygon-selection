@@ -208,10 +208,14 @@ def main() -> None:
     rng = random.Random(42)
     sampled: list[dict] = []
     for country, target in sorted(allocation.items()):
-        pq_file = DATASET_ROOT / f"{country}.parquet"
+        # Look in the per_country/<country>/<country>.parquet location first
+        # (the public dataset layout), then fall back to the flat layout.
+        pq_file = DATASET_ROOT / "per_country" / country / f"{country}.parquet"
         if not pq_file.exists():
-            print(f"  {country}: SKIPPED (no parquet at {pq_file})")
-            continue
+            pq_file = DATASET_ROOT / f"{country}.parquet"
+            if not pq_file.exists():
+                print(f"  {country}: SKIPPED (no parquet for {country})")
+                continue
         rows = grid_sample_country(pq_file, target, rng)
         for r in rows:
             # Tag for visualization (defensive: parquet already has it).
