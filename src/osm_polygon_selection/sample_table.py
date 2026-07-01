@@ -18,6 +18,8 @@ import json
 from collections import Counter
 from pathlib import Path
 
+import pyarrow as pa
+import pyarrow.compute as pc
 import pyarrow.parquet as pq
 
 # Stable bin order (small < medium < large).
@@ -54,7 +56,71 @@ def compute_sample_size_bin_distribution(
     out: list[tuple[str, int, float]] = []
     for sb in SIZE_BIN_ORDER:
         n = counts.get(sb, 0)
-        pct = (n / total * 100.0) if total > 0 else 0.0
+        pct = round(n / total * 100.0, 1) if total > 0 else 0.0
+        out.append((sb, n, pct))
+    return out
+
+
+def _aggregate_size_bin_column(table_or_column: pa.ChunkedArray) -> Counter[str]:
+    """Run ``pc.value_counts`` on a single column and return a Counter.
+
+    Skips rows with ``None`` values; for parquet schemas that don't
+    have a ``size_bin`` column, callers should check the schema first.
+    """
+    vc = pc.value_counts(table_or_column)
+    out: Counter[str] = Counter()
+    try:
+        values = vc.field("values").to_pylist()
+        counts = vc.field("counts").to_pylist()
+    except Exception:
+        return out
+    for v, c in zip(values, counts):
+        if v is None:
+            continue
+        out[str(v)] = int(c)
+    return out
+
+
+def compute_global_size_bin_distribution(
+    dataset_root: Path,
+) -> list[tuple[str, int, float]]:
+    """Compute the FULL-dataset ``size_bin`` distribution.
+
+    Prefers ``combined/all_europe.parquet`` (one read). Falls back to
+    ``per_country/<country>/<country>.parquet`` files when combined
+    is missing or unreadable. Per-country parquets without a
+    ``size_bin`` column are skipped (older schemas).
+
+    Returns a list of ``(size_bin, count, pct)`` tuples in
+    ``SIZE_BIN_ORDER``. ``pct`` is over the sum of all bins.
+    """
+    combined = dataset_root / "combined" / "all_europe.parquet"
+    counts: Counter[str] = Counter()
+    if combined.is_file():
+        try:
+            t = pq.read_table(combined, columns=["size_bin"])
+            counts.update(_aggregate_size_bin_column(t["size_bin"]))
+        except Exception:
+            counts = Counter()
+    if not counts:
+        # Fallback: aggregate per-country parquets that have size_bin.
+        per_country_dir = dataset_root / "per_country"
+        if per_country_dir.is_dir():
+            for country_dir in sorted(per_country_dir.iterdir()):
+                pq_path = country_dir / f"{country_dir.name}.parquet"
+                if not pq_path.is_file():
+                    continue
+                try:
+                    t = pq.read_table(pq_path, columns=["size_bin"])
+                except Exception:
+                    continue
+                counts.update(_aggregate_size_bin_column(t["size_bin"]))
+
+    total = sum(counts.values())
+    out: list[tuple[str, int, float]] = []
+    for sb in SIZE_BIN_ORDER:
+        n = counts.get(sb, 0)
+        pct = round(n / total * 100.0, 1) if total > 0 else 0.0
         out.append((sb, n, pct))
     return out
 

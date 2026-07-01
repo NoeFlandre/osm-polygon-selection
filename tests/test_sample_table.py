@@ -15,6 +15,7 @@ from osm_polygon_selection.sample_table import (
     SIZE_BIN_ORDER,
     build_example_row_table,
     build_size_bin_distribution_table,
+    compute_global_size_bin_distribution,
     compute_sample_size_bin_distribution,
     fetch_full_row_from_parquet,
     pick_sample_row,
@@ -161,3 +162,102 @@ class TestBuildExampleRowTable:
         assert "size_bin" in out
         assert "country" in out
         assert "geometry_wkt" in out
+
+
+class TestComputeGlobalDistribution:
+    """The "global" distribution is computed from the FULL dataset,
+    not from a sample. Implemented via pyarrow.compute.value_counts
+    against a per-country parquet (or combined all_europe.parquet).
+    """
+
+    def test_returns_zero_for_missing_combined(self, tmp_path: Path) -> None:
+        # missing combined parquet -> all three bins are 0, pct 0.0
+        dist = compute_global_size_bin_distribution(tmp_path)
+        assert dist == [("small", 0, 0.0), ("medium", 0, 0.0), ("large", 0, 0.0)]
+
+    def test_aggregates_per_country(self, tmp_path: Path) -> None:
+        # Build a fake layout: per_country/a/a.parquet, per_country/b/b.parquet
+        layout = tmp_path
+        for sub in ("per_country", "combined"):
+            (layout / sub).mkdir(exist_ok=True)
+        _write_parquet(
+            layout / "per_country" / "a" / "a.parquet",
+            [
+                {"osm_id": 1, "size_bin": "small"},
+                {"osm_id": 2, "size_bin": "small"},
+                {"osm_id": 3, "size_bin": "medium"},
+            ],
+        )
+        _write_parquet(
+            layout / "per_country" / "b" / "b.parquet",
+            [
+                {"osm_id": 1, "size_bin": "small"},
+                {"osm_id": 2, "size_bin": "large"},
+            ],
+        )
+        dist = compute_global_size_bin_distribution(layout)
+        assert dist == [
+            ("small", 3, 60.0),
+            ("medium", 1, 20.0),
+            ("large", 1, 20.0),
+        ]
+
+    def test_prefers_combined_over_per_country(self, tmp_path: Path) -> None:
+        # If combined/all_europe.parquet exists, use it (NOT per_country).
+        layout = tmp_path
+        for sub in ("per_country", "combined"):
+            (layout / sub).mkdir(exist_ok=True)
+        # per_country has 1 small, 1 medium
+        _write_parquet(
+            layout / "per_country" / "a" / "a.parquet",
+            [
+                {"osm_id": 1, "size_bin": "small"},
+                {"osm_id": 2, "size_bin": "medium"},
+            ],
+        )
+        # combined has 2 small, 1 large
+        _write_parquet(
+            layout / "combined" / "all_europe.parquet",
+            [
+                {"osm_id": 1, "size_bin": "small"},
+                {"osm_id": 2, "size_bin": "small"},
+                {"osm_id": 3, "size_bin": "large"},
+            ],
+        )
+        dist = compute_global_size_bin_distribution(layout)
+        assert dist == [
+            ("small", 2, 66.7),
+            ("medium", 0, 0.0),
+            ("large", 1, 33.3),
+        ]
+
+    def test_skips_per_country_with_no_size_bin_column(self, tmp_path: Path) -> None:
+        # Per-country parquets may have older schemas without size_bin.
+        # Skip them gracefully (don't crash).
+        layout = tmp_path
+        (layout / "per_country").mkdir(exist_ok=True)
+        _write_parquet(
+            layout / "per_country" / "a" / "a.parquet",
+            [{"osm_id": 1, "name": "no_size_bin"}],
+        )
+        dist = compute_global_size_bin_distribution(layout)
+        assert dist == [("small", 0, 0.0), ("medium", 0, 0.0), ("large", 0, 0.0)]
+
+
+class TestBuildDistributionTableFromGlobal:
+    """build_size_bin_distribution_table should accept global counts too.
+    The total row should reflect the global count (~7M), not a sample.
+    """
+
+    def test_global_counts_format_correctly(self) -> None:
+        dist = [
+            ("small", 5_836_893, 79.9),
+            ("medium", 1_292_136, 17.7),
+            ("large", 173_753, 2.4),
+        ]
+        out = build_size_bin_distribution_table(dist)
+        assert "| small | 5,836,893 | 79.9% |" in out
+        assert "| medium | 1,292,136 | 17.7% |" in out
+        assert "| large | 173,753 | 2.4% |" in out
+        assert "| **Total** | 7,302,782 |" in out
+

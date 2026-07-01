@@ -30,6 +30,7 @@ from osm_polygon_selection.pbf_meta import geofabrik_url
 from osm_polygon_selection.sample_table import (
     build_example_row_table,
     build_size_bin_distribution_table,
+    compute_global_size_bin_distribution,
     compute_sample_size_bin_distribution,
 )
 from osm_polygon_selection.schema_defs import (
@@ -173,17 +174,12 @@ reproject it directly without re-deriving from centroid+area.
 (Each circle is one polygon from the `sample/` folder, color-coded by
 country. Circle size is proportional to `sqrt(area_km2)`.)
 
-## Sample size-bin distribution
+## Size-bin distribution (full dataset)
 
-This is the distribution of `size_bin` values across the
-[`sample/sample_map.jsonl`](./sample/sample_map.jsonl) file
-({sample_n_polygons:,} representative polygons; see
-[`sample/`](./sample/) for how the sample is built). Counts are
-exact (the sample is small enough to load entirely); the
-percentages reflect the same ratios you'd see across the full
-**{total_polygons:,}-polygon** dataset because the sampling is
-geographically stratified (one polygon per `K×K` grid cell per
-country, power-law weighted).
+Counts every polygon in the {total_polygons:,}-polygon dataset by
+`size_bin`, computed directly from `combined/all_europe.parquet`
+via `pyarrow.compute.value_counts`. Percentages are exact ratios
+over the entire dataset, not a sample.
 
 {size_bin_table}
 
@@ -194,10 +190,10 @@ Here is one concrete row from the Liechtenstein parquet file
 
 {example_row_table}
 
-This row is representative: ~76% of polygons in the sample are
-`small`, ~20% are `medium`, ~4% are `large` (see the table above),
-and the dominant whitelist tag families (`natural=*`, `landuse=*`,
-`leisure=*`) account for the majority of `matched_tag` values.
+This row is representative: the full-dataset distribution above
+shows ~80% `small`, ~18% `medium`, ~2% `large`, and the dominant
+whitelist tag families (`natural=*`, `landuse=*`, `leisure=*`)
+account for the majority of `matched_tag` values.
 
 ## Filter chain
 
@@ -300,7 +296,8 @@ def build_root_readme(manifest: dict, root: Path) -> str:
     sample_path = root / "sample" / "sample_map.jsonl"
     if not sample_path.is_file():
         sample_path = Path("/tmp/sample_map.jsonl")
-    dist = compute_sample_size_bin_distribution(sample_path)
+    # GLOBAL size-bin distribution (full dataset, not sample).
+    dist = compute_global_size_bin_distribution(root)
     size_bin_table = build_size_bin_distribution_table(dist)
     sample_n_polygons = sum(n for _, n, _ in dist)
 

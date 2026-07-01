@@ -75,10 +75,53 @@ class TestBuildRootReadme:
     def test_includes_size_bin_distribution(self, tmp_path: Path) -> None:
         sample = tmp_path / "sample.jsonl"
         sample.write_text('{"size_bin": "small"}\n{"size_bin": "large"}\n')
-        out = build_root_readme(_manifest([_country("a", 2)]), tmp_path)
-        assert "Sample size-bin distribution" in out
+        # Build a fake combined parquet so the GLOBAL distribution
+        # function returns real counts (which is what the README
+        # should be displaying now, not sample-only).
+        (tmp_path / "combined").mkdir(exist_ok=True)
+        import pyarrow as pa
+        import pyarrow.parquet as pq
+        pq.write_table(
+            pa.Table.from_pylist([
+                {"osm_id": 1, "size_bin": "small"},
+                {"osm_id": 2, "size_bin": "small"},
+                {"osm_id": 3, "size_bin": "large"},
+            ]),
+            tmp_path / "combined" / "all_europe.parquet",
+        )
+        out = build_root_readme(_manifest([_country("a", 3)]), tmp_path)
+        assert "Size-bin distribution" in out
         assert "| small |" in out
         assert "| large |" in out
+        assert "| **Total** | 3,000" in out or "| **Total** | 3 |" in out
+
+    def test_distribution_is_global_not_sample(self, tmp_path: Path) -> None:
+        """The README must show GLOBAL counts (from combined parquet),
+        NOT the sample JSONL counts. The sample has 1 small + 1 large.
+        The combined has 100 small + 50 medium + 10 large. The README
+        must reflect the combined totals, not the sample.
+        """
+        sample = tmp_path / "sample" / "sample_map.jsonl"
+        sample.parent.mkdir(parents=True, exist_ok=True)
+        sample.write_text('{"size_bin": "small"}\n{"size_bin": "large"}\n')
+        (tmp_path / "combined").mkdir(exist_ok=True)
+        import pyarrow as pa
+        import pyarrow.parquet as pq
+        rows = [{"osm_id": i, "size_bin": "small"} for i in range(100)]
+        rows += [{"osm_id": i, "size_bin": "medium"} for i in range(50)]
+        rows += [{"osm_id": i, "size_bin": "large"} for i in range(10)]
+        pq.write_table(pa.Table.from_pylist(rows),
+                       tmp_path / "combined" / "all_europe.parquet")
+        out = build_root_readme(_manifest([_country("a", 160)]), tmp_path)
+        # Global totals must appear (with thousands-separator formatting).
+        assert "| small | 100 |" in out
+        assert "| medium | 50 |" in out
+        assert "| large | 10 |" in out
+        # Section header must say "full dataset", not "Sample"
+        assert "Size-bin distribution (full dataset)" in out
+        assert "Sample size-bin distribution" not in out
+        # And the table total (sum of all bins = 160) must appear.
+        assert "| **Total** | 160 |" in out
 
     def test_includes_example_row_section(self, tmp_path: Path) -> None:
         sample = tmp_path / "sample.jsonl"

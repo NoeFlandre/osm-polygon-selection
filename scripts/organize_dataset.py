@@ -267,17 +267,12 @@ reproject it directly without re-deriving from centroid+area.
 (Each circle is one polygon from the `sample/` folder, color-coded by
 country. Circle size is proportional to `sqrt(area_km2)`.)
 
-## Sample size-bin distribution
+## Size-bin distribution (full dataset)
 
-This is the distribution of `size_bin` values across the
-[`sample/sample_map.jsonl`](./sample/sample_map.jsonl) file
-({sample_n_polygons:,} representative polygons; see
-[`sample/`](./sample/) for how the sample is built). Counts are
-exact (the sample is small enough to load entirely); the
-percentages reflect the same ratios you'd see across the full
-**{total_polygons:,}-polygon** dataset because the sampling is
-geographically stratified (one polygon per `K×K` grid cell per
-country, power-law weighted).
+Counts every polygon in the **{total_polygons:,}-polygon** dataset
+by `size_bin`, computed directly from `combined/all_europe.parquet`
+via `pyarrow.compute.value_counts`. Percentages are exact ratios
+over the entire dataset, not a sample.
 
 {size_bin_table}
 
@@ -288,10 +283,10 @@ Here is one concrete row from the Liechtenstein parquet file
 
 {example_row_table}
 
-This row is representative: ~76% of polygons in the sample are
-`small`, ~20% are `medium`, ~4% are `large` (see the table above),
-and the dominant whitelist tag families (`natural=*`, `landuse=*`,
-`leisure=*`) account for the majority of `matched_tag` values.
+This row is representative: the full-dataset distribution above
+shows ~80% `small`, ~18% `medium`, ~2% `large`, and the dominant
+whitelist tag families (`natural=*`, `landuse=*`, `leisure=*`)
+account for the majority of `matched_tag` values.
 
 ## Filter chain
 
@@ -863,10 +858,19 @@ def update_root_readme(root: Path) -> None:
     saved_dir = build_dataset.DATASET_DIR
     build_dataset.DATASET_DIR = root
     try:
-        size_bin_table = build_dataset._build_size_bin_distribution_table(sample_path)
         example_row_table = build_dataset._build_example_row_table(sample_path)
     finally:
         build_dataset.DATASET_DIR = saved_dir
+
+    # GLOBAL size-bin distribution: from combined/all_europe.parquet so the
+    # table reflects every polygon, not a sample.
+    from osm_polygon_selection.sample_table import (
+        build_size_bin_distribution_table as _build_dist_table,
+        compute_global_size_bin_distribution,
+    )
+    sample_dist = compute_global_size_bin_distribution(root)
+    size_bin_table = _build_dist_table(sample_dist)
+    sample_n_polygons = sum(n for _, n, _ in sample_dist)
 
     # Read split manifest if present; default to "no split yet" placeholders
     # so the README renders even before make_split.py has been run.
@@ -878,9 +882,6 @@ def update_root_readme(root: Path) -> None:
             sm = json.load(f)
         split_counts = sm.get("counts", {})
         split_seed = sm.get("seed", 42)
-
-    sample_dist = build_dataset.compute_sample_size_bin_distribution(sample_path)
-    sample_n_polygons = sum(n for _, n, _ in sample_dist)
 
     yaml_frontmatter = """---
 license: odbl
