@@ -70,8 +70,19 @@ def git_sha() -> str:
 
 
 def extract_status(country: str) -> str:
-    """True if the run.json file exists (extract finished cleanly)."""
-    return "clean" if (PROC / country / "01_extracted.jsonl.run.json").exists() else "killed"
+    """True if at least one extract run finished (extract process reached end).
+
+    For countries processed via regional sub-PBFs, each sub-region has
+    its own `01_extracted_<region>.jsonl.run.json`. We accept the
+    country as "clean" if EITHER the merged run.json exists OR any
+    sub-region run.json exists (i.e., at least one extract finished).
+    """
+    country_dir = PROC / country
+    if (country_dir / "01_extracted.jsonl.run.json").exists():
+        return "clean"
+    for p in country_dir.glob("01_extracted_*.jsonl.run.json"):
+        return "clean"
+    return "killed"
 
 
 def build_schema() -> pa.Schema:
@@ -82,6 +93,7 @@ def build_schema() -> pa.Schema:
         ("centroid_lat", pa.float64()),
         ("area_km2", pa.float64()),
         ("tags", pa.list_(pa.string())),
+        ("matched_tag", pa.string()),
         ("continent", pa.string()),
         ("size_bin", pa.string()),
         ("country", pa.string()),
@@ -115,12 +127,50 @@ def _encode_geometry(row: dict) -> bytes | str | None:
     return geom.wkb
 
 
+def _load_whitelist() -> set[str]:
+    """Load the 22,075-tag whitelist used by Stage 2.
+
+    Cached at module level so we only hit the disk once per build.
+    """
+    global _WHITELIST_CACHE
+    if _WHITELIST_CACHE is None:
+        with (HDD / "whitelist.json").open() as f:
+            _WHITELIST_CACHE = set(json.load(f))
+    return _WHITELIST_CACHE
+
+
+_WHITELIST_CACHE: set[str] | None = None
+
+
+def _compute_matched_tag(row: dict) -> str:
+    """Return the first tag in row.tags that hits the whitelist.
+
+    Older 03_classified.jsonl files (pre-matched_tag) don't have this
+    field, so we compute it from row.tags at build time. This avoids
+    re-running Stage 2 across all countries just to backfill the
+    column.
+    """
+    mt = row.get("matched_tag")
+    if mt:
+        return str(mt)
+    wl = _load_whitelist()
+    for t in row.get("tags", []):
+        if t in wl:
+            return str(t)
+    return ""
+
+
 def row_to_record(row: dict, country: str, status: str, pbf_date: str) -> dict | None:
     """Convert one JSONL row + metadata into a dataset record.
 
     Each row keeps the polygon geometry (per OSM_POLYGON_GEOMETRY
     env var) plus centroid + area + tags. The geometry column is
     named "geometry_wkt" (text) or "geometry_wkb" (binary).
+
+    The `matched_tag` column captures the whitelist tag that kept
+    this polygon. For countries whose 03_classified.jsonl was built
+    before this column existed, we compute it at build time from
+    the row's tags against the whitelist (no re-running Stage 2).
     """
     try:
         c = row.get("centroid", [None, None])
@@ -131,6 +181,7 @@ def row_to_record(row: dict, country: str, status: str, pbf_date: str) -> dict |
             "centroid_lat": float(c[1]) if c and len(c) > 1 else None,
             "area_km2": float(row.get("area_km2", 0.0)),
             "tags": list(row.get("tags", [])),
+            "matched_tag": _compute_matched_tag(row),
             "continent": str(row.get("continent", "unknown")),
             "size_bin": str(row.get("size_bin", "small")),
             "country": country,
@@ -234,6 +285,7 @@ size_categories:
         ("centroid_lat", "float64", "polygon centroid latitude (WGS84)"),
         ("area_km2", "float64", "polygon area in km² (Web Mercator, accurate at mid-latitudes)"),
         ("tags", "list(string)", "OSM `key=value` tags"),
+        ("matched_tag", "string", "the first tag in `tags` that hit the whitelist filter (the reason the polygon survived)"),
         ("continent", "string", "Natural Earth admin0 lookup of the centroid"),
         ("size_bin", "string", '"small" (0.1-1), "medium" (1-10), or "large" (10-100) km²'),
         ("country", "string", "ISO-style country name"),
@@ -270,6 +322,9 @@ admin0 lookup).
 
 **Status:** {status_line}
 
+**Total polygons:** {sum(c['n_polygons'] for c in countries_done):,}
+(combined parquet: `all_europe.parquet`).
+
 ## What's in this dataset
 
 Each row is one OSM polygon (closed way or multipolygon relation) that
@@ -288,6 +343,13 @@ reproject it directly without re-deriving from centroid+area.
 - Source: Geofabrik regional extracts (`https://download.geofabrik.de/`)
 - Whitelist: 22,075 OSM `key=value` tags from osm-stats (see
   `docs/whitelist_decisions.md` in the project repo)
+
+## Geographic distribution
+
+![polygon distribution across Europe](map_preview.png)
+
+(Each circle is one polygon, color-coded by country. Circle size is
+proportional to `sqrt(area_km2)`.)
 
 ## Filter chain
 
@@ -395,6 +457,35 @@ def main() -> None:
             "hamburg", "hessen", "mecklenburg-vorpommern", "niedersachsen",
             "nordrhein-westfalen", "rheinland-pfalz", "saarland", "sachsen",
             "sachsen-anhalt", "schleswig-holstein", "thueringen",
+        },
+        "norway": {
+            "nord-norge", "ostlandet", "sorlandet", "svalbard-janmayen",
+            "trondelag", "vestlandet",
+        },
+        "italy": {
+            "centro", "isole", "nord-est", "nord-ovest", "sud",
+        },
+        "netherlands": {
+            "drenthe", "flevoland", "friesland", "gelderland", "groningen",
+            "limburg", "noord-brabant", "noord-holland", "overijssel",
+            "utrecht", "zeeland", "zuid-holland",
+        },
+        "poland": {
+            "dolnoslaskie", "kujawsko-pomorskie", "lodzkie", "lubelskie",
+            "lubuskie", "malopolskie", "mazowieckie", "opolskie",
+            "podkarpackie", "podlaskie", "pomorskie", "slaskie",
+            "swietokrzyskie", "warminsko-mazurskie", "wielkopolskie",
+            "zachodniopomorskie",
+        },
+        "spain": {
+            "andalucia", "aragon", "asturias", "cantabria",
+            "castilla-la-mancha", "castilla-y-leon", "cataluna", "ceuta",
+            "extremadura", "galicia", "islas-baleares", "la-rioja",
+            "madrid", "melilla", "murcia", "navarra", "pais-vasco",
+            "valencia",
+        },
+        "united-kingdom": {
+            "england", "scotland", "wales", "bermuda", "falklands",
         },
     }
     # All regional children across all countries
