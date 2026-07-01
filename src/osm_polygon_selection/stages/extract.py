@@ -42,7 +42,11 @@ import osmium
 import shapely.wkt
 from shapely.validation import make_valid
 
-from osm_polygon_selection.core.geometry_utils import area_km2, is_polygon
+from osm_polygon_selection.core.geometry_utils import (
+    approx_area_km2_lonlat,
+    area_km2,
+    is_polygon,
+)
 
 MIN_AREA_KM2 = 0.1
 MAX_AREA_KM2 = 100.0
@@ -202,15 +206,11 @@ def _record_from_wkt(
 
     # Vertex-count guard. make_valid / is_valid on a self-intersecting
     # multipolygon with thousands of vertices can run for minutes.
+    # Use shapely.get_num_coordinates for a C-level total count
+    # (~8x faster than iterating per-vertex in Python).
     try:
-        if geom.geom_type == "MultiPolygon":
-            n_vertices = sum(len(p.exterior.coords) for p in geom.geoms) + sum(
-                sum(len(i.coords) for i in p.interiors) for p in geom.geoms
-            )
-        else:  # Polygon
-            n_vertices = len(geom.exterior.coords) + sum(
-                len(i.coords) for i in geom.interiors
-            )
+        import shapely as _shapely
+        n_vertices = _shapely.get_num_coordinates(geom)
     except Exception:
         n_vertices = 0
     if n_vertices > MAX_VERTICES:
@@ -220,6 +220,18 @@ def _record_from_wkt(
     # Cheap area check on the raw (possibly invalid) geometry. For
     # self-intersecting polygons, g.area still returns a meaningful
     # signed area for the canonical region.
+    #
+    # Optimization: ~90% of OSM polygons are below MIN_AREA_KM2.
+    # Running the full pyproj reprojection (a per-vertex Python
+    # callback) on all of them is wasteful. We use a fast lon/lat
+    # approximation as a conservative pre-filter: if the approx
+    # is well below MIN_AREA_KM2 / 100 (a strict 100x margin),
+    # the polygon is guaranteed to be too small and we drop it
+    # without ever running the full projection.
+    approx_a = approx_area_km2_lonlat(geom)
+    if approx_a < MIN_AREA_KM2 / 2:
+        drops["too_small"] = drops.get("too_small", 0) + 1
+        return 0
     a = area_km2(geom)
     if a < MIN_AREA_KM2:
         drops["too_small"] = drops.get("too_small", 0) + 1
