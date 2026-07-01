@@ -630,36 +630,70 @@ def main() -> None:
         pbf_date = pbf_date_for(country)
 
         rows = []
-        with classified.open() as f:
-            for line in f:
-                rec = row_to_record(json.loads(line), country, status, pbf_date)
-                if rec is not None:
-                    rows.append(rec)
+        # Fast path: stream the JSONL through the optimized writer
+        # (O(chunk_size) memory, vectorized matched_tag backfill).
+        # Falls back to the per-row Python path only if the writer
+        # is unavailable (e.g. import error).
+        from osm_polygon_selection.streaming_writer import write_jsonl_to_parquet
+        out_file = out_dir / f"{country}.parquet"
+        streaming_failed = False
+        try:
+            n = write_jsonl_to_parquet(
+                jsonl_path=classified,
+                parquet_path=out_file,
+                country=country,
+                extract_status=status,
+                pbf_date=pbf_date,
+                geometry_encoding=GEOMETRY_ENCODING,
+                whitelist_path=HDD / "whitelist.json",
+            )
+        except Exception as e:
+            print(f"  {country}: streaming writer failed ({e}); falling back to per-row path")
+            streaming_failed = True
+            n = 0
+        if streaming_failed or n == 0:
+            # Either zero-yield or fallback. Try the old path.
+            if out_file is not None and out_file.is_file():
+                out_file.unlink()
+            rows = []
+            with classified.open() as f:
+                for line in f:
+                    rec = row_to_record(json.loads(line), country, status, pbf_date)
+                    if rec is not None:
+                        rows.append(rec)
+            if not rows:
+                # Zero-yield 03_classified.jsonl: country attempted, extract ran
+                # but produced no polygons (e.g. killed before any output).
+                # Record it in the manifest with n_polygons=0 so downstream
+                # users know the country was tried but is absent from the data.
+                countries_done.append({
+                    "country": country,
+                    "n_polygons": 0,
+                    "extract_status": status,  # "killed" if run.json missing
+                    "pbf_date": pbf_date,
+                })
+                print(f"  {country}: 0 polygons (zero-yield, recorded in manifest only)")
+                continue
 
-        if not rows:
-            # Zero-yield 03_classified.jsonl: country attempted, extract ran
-            # but produced no polygons (e.g. killed before any output).
-            # Record it in the manifest with n_polygons=0 so downstream
-            # users know the country was tried but is absent from the data.
+            table = pa.Table.from_pylist(rows, schema=build_schema())
+            out_file = out_dir / f"{country}.parquet"
+            pq.write_table(table, out_file, compression="snappy")
             countries_done.append({
                 "country": country,
-                "n_polygons": 0,
-                "extract_status": status,  # "killed" if run.json missing
+                "n_polygons": len(rows),
+                "extract_status": status,
                 "pbf_date": pbf_date,
             })
-            print(f"  {country}: 0 polygons (zero-yield, recorded in manifest only)")
-            continue
-
-        table = pa.Table.from_pylist(rows, schema=build_schema())
-        out_file = out_dir / f"{country}.parquet"
-        pq.write_table(table, out_file, compression="snappy")
-        countries_done.append({
-            "country": country,
-            "n_polygons": len(rows),
-            "extract_status": status,
-            "pbf_date": pbf_date,
-        })
-        print(f"  {country}: {len(rows)} polygons -> {out_file.name}")
+            print(f"  {country}: {len(rows)} polygons -> {out_file.name}")
+        else:
+            # Streaming path succeeded. Record in manifest.
+            countries_done.append({
+                "country": country,
+                "n_polygons": n,
+                "extract_status": status,
+                "pbf_date": pbf_date,
+            })
+            print(f"  {country}: {n} polygons -> {out_file.name} (streaming)")
 
     # Second pass: countries that have a raw/ PBF but no 03_classified.jsonl
     # at all (i.e. Stage 0 was started but killed before reaching Stage 2/3).
