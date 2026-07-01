@@ -236,6 +236,34 @@ size_categories:
     print("metadata.yaml written")
 
 
+def build_country_table(countries: list[dict]) -> str:
+    """Render the per-country summary as a markdown table.
+
+    Pure function: takes the same `countries_done` list-of-dicts
+    that's already produced by `main()` (each entry has at least
+    `country`, `n_polygons`, and `extract_status`) and returns a
+    markdown table string.
+
+    Columns: Country | Polygons | Status
+
+    Rows are sorted alphabetically by country name so the output is
+    deterministic. A grand-total row is appended at the bottom.
+
+    Countries with `extract_status='killed'` are NOT filtered out —
+    they appear with status='killed' so the manifest is complete.
+    """
+    header = "| Country | Polygons | Status |\n|---------|----------|--------|"
+    rows = sorted(countries, key=lambda c: c["country"])
+    lines = [header]
+    for c in rows:
+        lines.append(
+            f"| {c['country']} | {c['n_polygons']:,} | {c['extract_status']} |"
+        )
+    total = sum(c["n_polygons"] for c in countries)
+    lines.append(f"| **Total** | {total:,} | |")
+    return "\n".join(lines)
+
+
 def write_readme(out_dir: Path, countries_done: list[dict], total_polygons: int) -> None:
     # YAML frontmatter for HuggingFace dataset viewer compatibility.
     # Without this, HF shows "empty or missing yaml metadata in repo card"
@@ -364,9 +392,9 @@ Each polygon in this dataset has passed three filters:
    admin0 shapefile, size_bin assigned by area.
 
 ## Per-country summary
+
+{build_country_table(countries_done)}
 """
-    for c in countries_done:
-        readme += f"- {c['country']}: {c['n_polygons']:,} polygons ({c['extract_status']})\n"
 
     (out_dir / "README.md").write_text(readme)
     print(f"README.md written ({len(readme)} chars)")

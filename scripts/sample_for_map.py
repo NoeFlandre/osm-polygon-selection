@@ -1,17 +1,33 @@
 """Sample polygons across all processed countries for a lightweight map.
 
-Strategy:
-- Stratified sampling: each country contributes proportionally to its
-  share of total polygons, with a small floor (so small countries are
-  visible) and a cap (so big countries don't dominate).
-- Within each country, sample by size_bin (tiny/small/medium/large)
-  to show size distribution.
-- Color-code by country for visual distinction.
-- Output is a single JSONL with the same schema as 03_classified.jsonl
-  so the existing visualize.py works on it directly.
+Strategy (improved for "highly representative" maps):
+
+1. **Power-law per-country allocation**: each country gets
+   ``clamp(round(n_polygons ** POWER), FLOOR, CAP)`` polygons. This
+   compresses the per-country range so dense countries (germany: 1.1M)
+   don't crowd out sparse ones (monaco: 2), while still preserving
+   the relative density differences. With ``POWER=0.4``:
+   - monaco (2 polygons) -> floor 8 (only 2 exist; shown in full)
+   - germany (1,131,888 polygons) -> ~179
+   The raw germany/monaco ratio is ~565,000x; the sampled ratio is ~22x.
+
+2. **Spatial coverage within each country**: bucket each polygon's
+   centroid into a ``K x K`` grid where ``K = ceil(sqrt(target_n))``,
+   then pick one random polygon per cell using reservoir sampling.
+   This avoids clustering in dense regions (e.g. cities) and ensures
+   the sampled polygons are well-spread across the country's bounding
+   box. If the country has fewer than ``target_n`` non-empty cells
+   (very sparse or linear-shaped), top up with a uniform random sample.
+
+3. **Floor (FLOOR=8)** so even monaco's 2 polygons are visible.
+4. **Cap (CAP=200)** so germany doesn't fill the map.
+
+Output is a JSONL with the same schema as the parquet files so the
+existing ``visualize.py`` works on it directly.
 """
 
 import json
+import math
 import os
 import random
 from pathlib import Path
@@ -27,111 +43,140 @@ OUT_PATH = Path("/tmp/sample_map.jsonl")
 
 # Per-country floor and cap. Floor ensures small countries show up;
 # cap prevents one country from dominating the map.
-FLOOR = 15          # every country gets at least this many
-CAP_RATIO = 0.40    # no country gets more than 40% of the sample
-TARGET_TOTAL = 1200  # dense coverage, ~5MB HTML
+FLOOR = 8          # every country gets at least this many
+CAP = 200          # never more than this per country
+POWER = 0.4        # power-law compression exponent
 
-# Per-bin allocation within a country. Sum should be ~1.0; we just
-# sample up to this many per bin.
-BIN_BUDGET = {
-    "tiny": 4,
-    "small": 12,
-    "medium": 8,
-    "large": 4,
-}
+# Parquet columns we read. Mirrors what visualize.py reads.
+GEO_COLS = ["centroid_lon", "centroid_lat"]
+ALL_COLS = GEO_COLS + [
+    "osm_id", "area_km2", "continent",
+    "size_bin", "matched_tag", "country",
+]
 
 random.seed(42)
 
 
-def country_share(country_counts: dict[str, int], total: int) -> dict[str, int]:
-    """Allocate TARGET_TOTAL polygons across countries.
+def power_law_alloc(country_counts: dict[str, int]) -> dict[str, int]:
+    """Allocate target sample size per country using power-law compression.
 
-    Each country gets at least FLOOR, at most CAP_RATIO * TARGET_TOTAL.
-    Remainder is distributed proportionally to the country's share
-    of the total polygon pool.
+    ``n_target = clamp(round(n_polygons ** POWER), FLOOR, CAP)``
     """
-    cap = int(CAP_RATIO * TARGET_TOTAL)
-    raw = {
-        c: max(FLOOR, int(TARGET_TOTAL * count / total))
+    return {
+        c: max(FLOOR, min(CAP, round(count ** POWER)))
         for c, count in country_counts.items()
     }
-    # Cap oversize countries
-    raw = {c: min(n, cap) for c, n in raw.items()}
-
-    # Distribute the difference between sum(raw) and TARGET_TOTAL
-    diff = TARGET_TOTAL - sum(raw.values())
-    if diff > 0:
-        # Give the extra to the largest country (it has the most to choose from)
-        biggest = max(country_counts, key=lambda c: country_counts[c])
-        raw[biggest] += diff
-    return raw
 
 
-def load_from_parquet(country: str, n_needed: int) -> list[dict]:
-    """Load at most n_needed polygons for a country from its parquet file.
+def compute_bbox(pq_file: Path) -> tuple[float, float, float, float] | None:
+    """Stream row groups and find centroid bbox.
 
-    Parquet is much faster to read than JSONL when we only need a
-    subset (which is the case here). For a 12 MB parquet with
-    ~270k rows, we can read a 1200-row random subset in <100 ms.
+    Returns (min_lon, max_lon, min_lat, max_lat), or None if empty.
     """
-    pq_file = DATASET_ROOT / f"{country}.parquet"
-    if not pq_file.exists():
-        return []
-    # Read with row-group filtering if available; otherwise load full
-    # table and sample.
-    table = pq.read_table(pq_file, columns=[
-        "osm_id", "centroid_lon", "centroid_lat", "area_km2",
-        "continent", "size_bin", "country",
-    ])
-    if table.num_rows == 0:
-        return []
-    if table.num_rows <= n_needed:
-        df = table.to_pylist()
-    else:
-        # Random row indices
-        rng = random.Random(42)
-        idx = rng.sample(range(table.num_rows), n_needed)
-        df = table.take(idx).to_pylist()
-    return df
+    pf = pq.ParquetFile(pq_file)
+    min_lon = min_lat = float("inf")
+    max_lon = max_lat = float("-inf")
+    n_rows = 0
+    for rg in range(pf.num_row_groups):
+        t = pf.read_row_group(rg, columns=GEO_COLS)
+        lons = t["centroid_lon"].to_pylist()
+        lats = t["centroid_lat"].to_pylist()
+        for lon, lat in zip(lons, lats):
+            if lon is None or lat is None:
+                continue
+            if lon < min_lon:
+                min_lon = lon
+            if lon > max_lon:
+                max_lon = lon
+            if lat < min_lat:
+                min_lat = lat
+            if lat > max_lat:
+                max_lat = lat
+            n_rows += 1
+    if n_rows == 0:
+        return None
+    return min_lon, max_lon, min_lat, max_lat
 
 
-def load_from_parquet_by_bin(country: str, n_per_bin: dict[str, int]) -> dict[str, list[dict]]:
-    """Like load_from_parquet but groups by size_bin.
+def grid_sample_country(
+    pq_file: Path,
+    target_n: int,
+    rng: random.Random,
+) -> list[dict]:
+    """Sample ``target_n`` polygons spread geographically across the country.
 
-    n_per_bin maps size_bin -> max rows to sample from that bin.
+    Algorithm:
+    1. Compute centroid bbox from a streaming pass over row groups.
+    2. Pick ``K = max(1, ceil(sqrt(target_n)))`` so K*K cells can hold
+       at least ``target_n`` samples (one per cell).
+    3. Second streaming pass: bucket each polygon into its cell using
+       reservoir sampling of size 1 (keep a uniformly random member
+       of each cell). Memory cost is O(K^2) records.
+    4. If we got fewer than ``target_n`` non-empty cells, top up with
+       a uniform random sample of additional rows.
+    5. Cap output at ``target_n``.
     """
-    pq_file = DATASET_ROOT / f"{country}.parquet"
-    if not pq_file.exists():
-        return {b: [] for b in BIN_BUDGET}
-    table = pq.read_table(pq_file, columns=[
-        "osm_id", "centroid_lon", "centroid_lat", "area_km2",
-        "continent", "size_bin", "country",
-    ])
-    if table.num_rows == 0:
-        return {b: [] for b in BIN_BUDGET}
-    df = table.to_pandas()
-    by_bin: dict[str, list[dict]] = {b: [] for b in BIN_BUDGET}
-    for _, row in df.iterrows():
-        rec = row.to_dict()
-        by_bin.setdefault(rec.get("size_bin", "small"), []).append(rec)
-    # Cap each bin to n_per_bin[b]
-    rng = random.Random(42)
-    for b in by_bin:
-        cap = n_per_bin.get(b, BIN_BUDGET[b])
-        if len(by_bin[b]) > cap:
-            by_bin[b] = rng.sample(by_bin[b], cap)
-    return by_bin
+    bbox = compute_bbox(pq_file)
+    if bbox is None:
+        return []
+    min_lon, max_lon, min_lat, max_lat = bbox
+
+    K = max(1, math.ceil(math.sqrt(target_n)))
+    lon_step = (max_lon - min_lon) / K if max_lon > min_lon else 1e-9
+    lat_step = (max_lat - min_lat) / K if max_lat > min_lat else 1e-9
+
+    # cell_record: one representative record (dict) per cell.
+    # cell_count: how many records seen for this cell (for reservoir).
+    cell_record: dict[tuple[int, int], dict] = {}
+    cell_count: dict[tuple[int, int], int] = {}
+
+    pf = pq.ParquetFile(pq_file)
+    for rg in range(pf.num_row_groups):
+        t = pf.read_row_group(rg, columns=ALL_COLS)
+        rows = t.to_pylist()
+        for rec in rows:
+            lon = rec.get("centroid_lon")
+            lat = rec.get("centroid_lat")
+            if lon is None or lat is None:
+                continue
+            ix = min(K - 1, max(0, int((lon - min_lon) / lon_step)))
+            iy = min(K - 1, max(0, int((lat - min_lat) / lat_step)))
+            cell = (ix, iy)
+            n_seen = cell_count.get(cell, 0) + 1
+            cell_count[cell] = n_seen
+            if cell not in cell_record or rng.random() < 1 / n_seen:
+                cell_record[cell] = rec
+
+    # Deterministic ordering: by grid index (south-to-north, west-to-east).
+    sampled = [cell_record[c] for c in sorted(cell_record.keys())]
+
+    # Top up if grid sample came up short (very sparse / linear countries).
+    if len(sampled) < target_n:
+        needed = target_n - len(sampled)
+        # Read only the columns we need and take a random subset.
+        # For very small countries (e.g. monaco), the whole file may
+        # already be in sampled; just emit whatever's left.
+        all_t = pq.read_table(pq_file, columns=ALL_COLS)
+        n_total = all_t.num_rows
+        if n_total <= needed:
+            extra = all_t.to_pylist()
+        else:
+            idx = rng.sample(range(n_total), needed)
+            extra = all_t.take(idx).to_pylist()
+        sampled.extend(extra)
+
+    return sampled[:target_n]
 
 
 def main() -> None:
-    # 1. Count countries by reading manifest (no row-level reads yet).
+    # 1. Read the manifest to get per-country polygon counts.
     manifest = DATASET_ROOT / "manifest.json"
     if manifest.exists():
         m = json.loads(manifest.read_text())
         countries_done = m["countries"]
         counts = {c["country"]: c["n_polygons"] for c in countries_done}
     else:
-        # Fallback: scan JSONL files (slower)
+        # Fallback: count rows in each 03_classified.jsonl.
         countries_done = []
         counts = {}
         for country_dir in sorted(PROCESSED_ROOT.iterdir()):
@@ -143,39 +188,37 @@ def main() -> None:
             n = sum(1 for _ in classified.open())
             counts[country_dir.name] = n
 
+    # Drop countries with zero polygons (no point trying to sample).
+    counts = {c: n for c, n in counts.items() if n > 0}
+
     if not counts:
         print("no classified countries found")
         return
 
     total = sum(counts.values())
-    print(f"found {len(counts)} countries, {total} classified polygons total")
+    print(f"found {len(counts)} countries, {total:,} classified polygons total")
 
     # 2. Allocate per-country sample size.
-    allocation = country_share(counts, total)
-    print("per-country allocation:", allocation)
+    allocation = power_law_alloc(counts)
+    total_target = sum(allocation.values())
+    print(f"per-country allocation sums to {total_target} samples "
+          f"(floor={FLOOR}, cap={CAP}, power={POWER})")
 
-    # 3. For each country, sample by size_bin from parquet.
+    # 3. Per country, do a grid-stratified sample.
+    rng = random.Random(42)
     sampled: list[dict] = []
-    for country, target in allocation.items():
-        n_per_bin = {b: min(BIN_BUDGET[b], target) for b in BIN_BUDGET}
-        by_bin = load_from_parquet_by_bin(country, n_per_bin)
-        per_country = []
-        bins = list(BIN_BUDGET.keys())
-        idx = 0
-        while len(per_country) < target:
-            b = bins[idx % len(bins)]
-            pool = by_bin.get(b, [])
-            if pool:
-                picked = pool.pop()
-                picked["country"] = country  # tag for visualization
-                # Drop unneeded fields (keep light for the HTML map)
-                picked.pop("tags", None)
-                per_country.append(picked)
-            idx += 1
-            if idx > 10 * target and not pool:
-                break
-        sampled.extend(per_country)
-        print(f"  {country}: took {len(per_country)} of {target} (pool {counts[country]})")
+    for country, target in sorted(allocation.items()):
+        pq_file = DATASET_ROOT / f"{country}.parquet"
+        if not pq_file.exists():
+            print(f"  {country}: SKIPPED (no parquet at {pq_file})")
+            continue
+        rows = grid_sample_country(pq_file, target, rng)
+        for r in rows:
+            # Tag for visualization (defensive: parquet already has it).
+            r["country"] = country
+            r.pop("tags", None)
+        sampled.extend(rows)
+        print(f"  {country}: took {len(rows)} of {target} (pool {counts[country]:,})")
 
     # 4. Write the sample.
     OUT_PATH.parent.mkdir(parents=True, exist_ok=True)

@@ -62,8 +62,8 @@ def main() -> None:
             if len(rows_buffer) >= args.limit:
                 break
 
-    country_to_color = {c: COUNTRY_COLORS[i % len(COUNTRY_COLORS)]
-                        for i, c in enumerate(sorted(countries_seen))}
+    country_to_color = {cc: COUNTRY_COLORS[i % len(COUNTRY_COLORS)]
+                        for i, cc in enumerate(sorted(countries_seen))}
 
     # Use the centroid of the first row as the initial map center.
     # Accept both formats: nested centroid list OR flat lon/lat fields.
@@ -117,7 +117,10 @@ def main() -> None:
             popup=folium.Popup(popup, max_width=300),
         ).add_to(fmap)
 
-    # Add a small legend if any countries are colored.
+    # Build the legend HTML (we'll inject it after folium save, since
+    # folium 0.20's get_root().add_child(Element) silently drops the
+    # element from the rendered output).
+    legend_html: str = ""
     if country_to_color:
         legend_html = (
             "<div style='position:fixed; bottom:20px; left:20px; "
@@ -125,13 +128,24 @@ def main() -> None:
             "z-index:1000; font-size:11px;'>"
             "<b>Country</b><br>"
         )
-        for c, col in sorted(country_to_color.items()):
-            legend_html += f"<span style='color:{col}'>■</span> {c}<br>"
-        legend_html += "</div>"
-        fmap.get_root().add_child(folium.Element(legend_html))
+        for cc, col in sorted(country_to_color.items()):
+            legend_html = legend_html + f"<span style='color:{col}'>■</span> {cc}<br>"
+        legend_html = legend_html + "</div>"
 
     args.out.parent.mkdir(parents=True, exist_ok=True)
     fmap.save(str(args.out))
+
+    # Inject the legend into the saved HTML by appending it just
+    # before </body>. This is more reliable than folium's
+    # add_child for plain HTML overlays in newer folium versions.
+    if legend_html:
+        with args.out.open() as f:
+            html = f.read()
+        if "</body>" in html:
+            html = html.replace("</body>", legend_html + "</body>", 1)
+            with args.out.open("w") as f:
+                f.write(html)
+
     print(f"plotted {len(rows_buffer)} polygons ({len(country_to_color)} countries) to {args.out}")
 
 
