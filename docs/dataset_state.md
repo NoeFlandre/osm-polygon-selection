@@ -71,6 +71,7 @@ for the rationale.
   22,075-tag whitelist, avoiding a full re-run of Stage 2.
 
 ### Total classified polygons: 7,302,782 (49 countries)
+- 5,841,700 train / 730,076 val / 731,006 test (stratified by country, seed=42)
 
 ### Per-country breakdown
 

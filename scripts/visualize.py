@@ -125,7 +125,13 @@ def main() -> None:
         legend_html = (
             "<div style='position:fixed; bottom:20px; left:20px; "
             "background:white; padding:8px; border:1px solid grey; "
-            "z-index:1000; font-size:11px;'>"
+            "z-index:1000; font-size:11px; max-width:280px;'>"
+            "<b>Sampled for visualization (not exhaustive)</b><br>"
+            f"Showing ~{len(rows_buffer)} representative polygons "
+            "(~1 per K&times;K grid cell per country, power-law "
+            "weighted). See combined/all_europe.parquet for the full "
+            "dataset.<br>"
+            "<br>"
             "<b>Country</b><br>"
         )
         for cc, col in sorted(country_to_color.items()):

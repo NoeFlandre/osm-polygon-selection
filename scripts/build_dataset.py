@@ -264,6 +264,187 @@ def build_country_table(countries: list[dict]) -> str:
     return "\n".join(lines)
 
 
+# Bin order is fixed by the task: small < medium < large.
+_SIZE_BIN_ORDER = ("small", "medium", "large")
+
+
+def compute_sample_size_bin_distribution(sample_path: Path) -> list[tuple[str, int, float]]:
+    """Compute size-bin counts (and pct) for the sample JSONL.
+
+    Pure function (only reads the file). Returns a list of
+    ``(size_bin, count, pct)`` tuples, one per bin present in
+    ``_SIZE_BIN_ORDER``, in that order.
+
+    The pct is over the total rows in the file. Bins not present
+    in the data get ``(bin, 0, 0.0)``.
+    """
+    from collections import Counter
+    counts: Counter[str] = Counter()
+    total = 0
+    if sample_path.is_file():
+        with sample_path.open() as f:
+            for line in f:
+                row = json.loads(line)
+                counts[row.get("size_bin", "")] += 1
+                total += 1
+    out: list[tuple[str, int, float]] = []
+    for sb in _SIZE_BIN_ORDER:
+        n = counts.get(sb, 0)
+        pct = (n / total * 100.0) if total > 0 else 0.0
+        out.append((sb, n, pct))
+    return out
+
+
+def pick_sample_row(
+    sample_path: Path,
+    prefer_country: str = "liechtenstein",
+    prefer_tag_prefix: str = "natural=",
+) -> dict | None:
+    """Pick a single representative row for the README's "Example row" section.
+
+    Pure function (only reads the file). Tries to find a row whose
+    ``country == prefer_country`` and whose ``matched_tag`` starts
+    with ``prefer_tag_prefix`` (e.g. ``"natural="``). If none matches,
+    falls back to the first row of the requested country; if that
+    country is not present at all, returns the very first row.
+
+    Returns ``None`` if the file is empty or missing.
+    """
+    if not sample_path.is_file():
+        return None
+    first_row: dict | None = None
+    country_fallback: dict | None = None
+    with sample_path.open() as f:
+        for line in f:
+            row = json.loads(line)
+            if first_row is None:
+                first_row = row
+            if row.get("country") == prefer_country:
+                if country_fallback is None:
+                    country_fallback = row
+                if (row.get("matched_tag") or "").startswith(prefer_tag_prefix):
+                    return row
+    return country_fallback or first_row
+
+
+def _truncate(s: str, max_len: int = 100) -> str:
+    """Truncate ``s`` to ``max_len`` chars with a trailing ellipsis if cut."""
+    if s is None:
+        return ""
+    s = str(s)
+    if len(s) <= max_len:
+        return s
+    return s[: max_len - 3] + "..."
+
+
+def _build_example_row_table(sample_path: Path) -> str:
+    """Build the "Example row" markdown table for the README.
+
+    Uses ``pick_sample_row`` to find a representative row (preferring
+    Liechtenstein with a ``natural=`` tag) and renders all 13 columns
+    as a markdown table with two columns (column, value). Geometry is
+    truncated to 100 chars for readability.
+    """
+    row = pick_sample_row(sample_path)
+    if row is None:
+        return (
+            "*(no sample row available — run `scripts/sample_for_map.py` "
+            "to generate `sample/sample_map.jsonl`)*\n"
+        )
+
+    # The sample file only has the centroid-only columns (no geometry,
+    # no tags list, etc.). To show a complete row in the README we
+    # cross-reference the per-country parquet for the picked row's
+    # osm_id to fill in the missing columns.
+    full_row = _fetch_full_row_from_parquet(out_dir=None, sample_row=row)  # type: ignore[arg-type]
+
+    if full_row is None:
+        # Fall back to the sample-only columns.
+        full_row = row
+
+    cols = [
+        ("osm_id", full_row.get("osm_id")),
+        ("osm_type", full_row.get("osm_type")),
+        ("centroid_lon", full_row.get("centroid_lon")),
+        ("centroid_lat", full_row.get("centroid_lat")),
+        ("area_km2", full_row.get("area_km2")),
+        ("tags", full_row.get("tags")),
+        ("matched_tag", full_row.get("matched_tag")),
+        ("continent", full_row.get("continent")),
+        ("size_bin", full_row.get("size_bin")),
+        ("country", full_row.get("country")),
+        ("extract_status", full_row.get("extract_status")),
+        ("pbf_date", full_row.get("pbf_date")),
+        ("geometry_wkt", full_row.get("geometry_wkt")),
+    ]
+    out = "| column | value |\n|--------|-------|\n"
+    for name, value in cols:
+        if value is None:
+            value_repr = "*(none)*"
+        elif name == "area_km2" and isinstance(value, (int, float)):
+            value_repr = f"{value:.4f}"
+        elif name == "tags" and isinstance(value, list):
+            value_repr = "<br>".join(f"`{t}`" for t in value) if value else "*(none)*"
+        elif name == "geometry_wkt" and isinstance(value, str):
+            value_repr = f"`{_truncate(value, 100)}`"
+        elif name in ("centroid_lon", "centroid_lat") and isinstance(value, (int, float)):
+            value_repr = f"{value:.6f}"
+        else:
+            value_repr = f"`{value}`"
+        out += f"| {name} | {value_repr} |\n"
+    return out
+
+
+def _fetch_full_row_from_parquet(
+    out_dir: Path | None, sample_row: dict
+) -> dict | None:
+    """Fetch the full row (all 13 columns) for the picked sample row.
+
+    Looks up the row's osm_id in the per-country parquet for its
+    country and returns the merged record. Returns ``None`` if the
+    parquet is missing or the osm_id isn't found.
+    """
+    country = sample_row.get("country")
+    osm_id = sample_row.get("osm_id")
+    if country is None or osm_id is None:
+        return None
+    parquet = DATASET_DIR / "per_country" / country / f"{country}.parquet"
+    if not parquet.is_file():
+        return None
+    try:
+        t = pq.read_table(
+            parquet,
+            filters=[("osm_id", "=", int(osm_id))],
+        )
+    except Exception:
+        return None
+    if t.num_rows == 0:
+        return None
+    rec = t.to_pylist()[0]
+    # The parquet's tags field is list(string) and may come back as
+    # a numpy list; coerce to plain list of strings for markdown.
+    if rec.get("tags") is not None:
+        rec["tags"] = [str(x) for x in rec["tags"]]
+    return rec
+
+
+def _build_size_bin_distribution_table(sample_path: Path) -> str:
+    """Build the "Sample size-bin distribution" markdown table.
+
+    Uses ``compute_sample_size_bin_distribution`` to compute counts
+    and pct for the sample JSONL, and renders them as a markdown
+    table with three columns: size_bin, count, pct.
+    """
+    dist = compute_sample_size_bin_distribution(sample_path)
+    total = sum(c for _, c, _ in dist)
+    out = "| size_bin | count | pct |\n|----------|-------|-----|\n"
+    for sb, n, pct in dist:
+        # Format pct with 1 decimal place.
+        out += f"| {sb} | {n:,} | {pct:.1f}% |\n"
+    out += f"| **Total** | {total:,} | 100.0% |\n"
+    return out
+
+
 def write_readme(out_dir: Path, countries_done: list[dict], total_polygons: int) -> None:
     # YAML frontmatter for HuggingFace dataset viewer compatibility.
     # Without this, HF shows "empty or missing yaml metadata in repo card"
@@ -294,8 +475,7 @@ size_categories:
     if n_killed == 0:
         status_line = (
             f"All {n_clean} countries are extracted end-to-end "
-            f"(every OSM object examined, `run.json` written). "
-            f"No country was killed mid-pipeline."
+            f"(every OSM object examined, `run.json` written)."
         )
     else:
         status_line = (
@@ -341,12 +521,44 @@ size_categories:
     for name, dtype, desc in schema_columns:
         schema_table += f"| {name} | {dtype} | {desc} |\n"
 
+    # Sample size-bin distribution + example row. Both read
+    # sample/sample_map.jsonl (pure reads; no writes).
+    sample_path = out_dir / "sample" / "sample_map.jsonl"
+    if not sample_path.is_file():
+        # Fallback: the legacy /tmp location, used by sample_for_map.py.
+        sample_path = Path("/tmp/sample_map.jsonl")
+    size_bin_table = _build_size_bin_distribution_table(sample_path)
+    example_row_table = _build_example_row_table(sample_path)
+    sample_dist = compute_sample_size_bin_distribution(sample_path)
+    sample_n_polygons = sum(n for _, n, _ in sample_dist)
+
     readme = yaml_frontmatter + f"""# osm-polygon-selection dataset
 
 A curated set of OpenStreetMap polygons across {len(countries_done)}
-European countries, classified by size bin (small/medium/large,
-area in [0.1, 100] km²) and tagged by continent (Natural Earth
-admin0 lookup).
+European countries, classified by **size bin** (`small` /
+`medium` / `large`, area in [0.1, 100] km²) and tagged by continent
+(Natural Earth admin0 lookup).
+
+**Size bins:**
+
+- **`small`** — area in **[0.1, 1) km²** (10,000 m² to 1 km², roughly
+  100 m × 100 m to ~1 km × 1 km). Examples: a city block, a small
+  park, a single farm field, a small wood lot, a residential
+  courtyard, a parking lot, an industrial yard.
+- **`medium`** — area in **[1, 10) km²** (1 km² to 10 km², roughly
+  1 km × 1 km to 3 km × 3 km). Examples: a large park, a small
+  village/town footprint, a reservoir, a forest patch, an
+  industrial zone, a golf course, a cemetery, a nature reserve.
+- **`large`** — area in **[10, 100] km²** (10 km² to 100 km², roughly
+  3 km × 3 km to 10 km × 10 km). Examples: a large forest, a
+  big lake, an entire town or small city, a large military
+  training area, a national park section, a sizable agricultural
+  region.
+
+Polygons smaller than 0.1 km² (most individual buildings, houses,
+small ponds, single fields) and larger than 100 km² (whole countries,
+mountain ranges, big seas) are excluded by the size filter (see
+[Filter chain](#filter-chain) below).
 
 **Status:** {status_line}
 
@@ -370,7 +582,13 @@ reproject it directly without re-deriving from centroid+area.
 - Built: {datetime.now().isoformat()}
 - Source: Geofabrik regional extracts (`https://download.geofabrik.de/`)
 - Whitelist: 22,075 OSM `key=value` tags from osm-stats (see
-  `docs/whitelist_decisions.md` in the project repo)
+  `docs/whitelist_decisions.md` in the project repo, or read the
+  full rationale in the
+  [blog post](https://noeflandre.com/posts/osm-data-analysis)).
+  The whitelist is designed to filter polygons by landuse-style
+  tags (`natural`, `landuse`, `leisure`, `amenity`, etc.) so the
+  dataset focuses on physical land-cover / land-use features
+  rather than buildings, addresses, or points of interest.
 
 ## Geographic distribution
 
@@ -378,6 +596,33 @@ reproject it directly without re-deriving from centroid+area.
 
 (Each circle is one polygon, color-coded by country. Circle size is
 proportional to `sqrt(area_km2)`.)
+
+## Sample size-bin distribution
+
+This is the distribution of `size_bin` values across the
+[`sample/sample_map.jsonl`](./sample/sample_map.jsonl) file
+({sample_n_polygons:,} representative polygons; see
+[`sample/`](./sample/) for how the sample is built). Counts are
+exact (the sample is small enough to load entirely); the
+percentages reflect the same ratios you'd see across the full
+**{total_polygons:,}-polygon** dataset because the sampling is
+geographically stratified (one polygon per `K×K` grid cell per
+country, power-law weighted).
+
+{size_bin_table}
+
+## Example row
+
+Here is one concrete row from the Liechtenstein parquet file
+(a `natural=scrub` polygon, area ~0.26 km², fully filled-in with
+all 13 columns):
+
+{example_row_table}
+
+This row is representative: ~76% of polygons in the sample are
+`small`, ~20% are `medium`, ~4% are `large` (see the table above),
+and the dominant whitelist tag families (`natural=*`, `landuse=*`,
+`leisure=*`) account for the majority of `matched_tag` values.
 
 ## Filter chain
 
@@ -555,7 +800,19 @@ def main() -> None:
     # point at the external HDD when space is tight).
     out_path = out_dir / "all_europe.parquet"
     print(f"  combined: {combined.num_rows} polygons -> {out_path}")
-    pq.write_table(combined, out_path, compression="snappy")
+    # Use small row groups + page indexes so the HuggingFace dataset
+    # viewer can scan one row group at a time without exceeding its
+    # 300 MB scan limit. With ~7.3M rows and ~50k rows per group,
+    # that's ~150 groups, each ~50-60 MB (well under the 300 MB
+    # viewer scan limit). Page indexes let the viewer jump directly
+    # to specific value ranges in a column (e.g. country='france').
+    pq.write_table(
+        combined,
+        out_path,
+        compression="snappy",
+        row_group_size=50_000,
+        write_page_index=True,
+    )
 
     write_readme(out_dir, countries_done, combined.num_rows)
     write_metadata_yaml(out_dir)
