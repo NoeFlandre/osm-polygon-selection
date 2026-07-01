@@ -1,7 +1,7 @@
-# Dataset State (Europe rollout, June 2026)
+# Dataset State (Europe rollout, June-July 2026)
 
 This document describes the current state of the OSM polygon dataset
-produced by this project as of 28 June 2026. It is intended to be
+produced by this project as of 1 July 2026. It is intended to be
 read alongside `README.md` and the code in `scripts/` and
 `src/osm_polygon_selection/stages/`.
 
@@ -50,103 +50,76 @@ for the rationale.
 
 ## Coverage
 
-46 European countries processed through Stages 0-3 as of 28 June 2026
-(git SHA 707d9dd).
+46 European countries processed through Stages 0-3 as of 1 July 2026
+(git SHA d971391).
 
-- **38 countries** were extracted cleanly (every OSM object in the PBF
-  examined, `run.json` written, full pipeline run).
-- **5 countries** (italy, netherlands, poland, spain, united-kingdom)
-  had their extract killed mid-pipeline. The polygons that were yielded
-  before the kill are valid and complete; only a small tail of the
-  PBF was missed.
-- **3 countries** (norway, germany, france) had their extract killed
-  before any polygons were yielded — osmium's multipolygon assembly
-  phase hung on a single very complex relation for 30+ minutes, and
-  the process was killed. These countries are listed in the manifest
-  with `n_polygons: 0` so downstream users can see they were attempted.
+- **All 46 countries are extracted end-to-end.** No country is
+  currently killed-mid-pipeline. The eight countries that were
+  previously killed (italy, netherlands, norway, poland, spain,
+  united-kingdom, france, germany) have been re-extracted via
+  Geofabrik regional sub-PBFs (one region at a time, no
+  `--max-seconds` cap). Each sub-PBF ran to completion, then the
+  per-region outputs were merged into the country's
+  `01_extracted.jsonl` before Stages 2 and 3 ran on the merged file.
+- The dataset also got a new `matched_tag` column showing the first
+  whitelist tag each polygon matched. For countries whose
+  `03_classified.jsonl` was built before this column existed, it is
+  backfilled at build time from `row.tags` against the cached
+  22,075-tag whitelist, avoiding a full re-run of Stage 2.
 
-### Total classified polygons: 3,681,499 (43 countries with data)
+### Total classified polygons: 7,112,375 (46 countries)
 
 ### Per-country breakdown
 
-| Country | Extracted | Whitelisted | Classified | %Pass | Extract status |
-|---------|-----------|-------------|------------|-------|----------------|
-| albania | 14,993 | 14,738 | 14,738 | 98.3% | clean |
-| andorra | 787 | 776 | 776 | 98.6% | clean |
-| austria | 142,280 | 133,711 | 133,711 | 94.0% | clean |
-| azores | 3,314 | 2,640 | 2,640 | 79.7% | clean |
-| belarus | 227,024 | 223,750 | 223,750 | 98.6% | clean |
-| belgium | 129,587 | 125,108 | 125,108 | 96.6% | clean |
-| bosnia-herzegovina | 55,219 | 49,715 | 49,715 | 90.0% | clean |
-| bulgaria | 77,826 | 74,567 | 74,567 | 95.8% | clean |
-| croatia | 54,808 | 47,140 | 47,140 | 86.0% | clean |
-| cyprus | 5,782 | 4,846 | 4,846 | 83.8% | clean |
-| czech-republic | 291,323 | 271,062 | 271,062 | 93.0% | clean |
-| denmark | 176,511 | 175,795 | 175,795 | 99.6% | clean |
-| estonia | 52,258 | 47,160 | 47,160 | 90.2% | clean |
-| faroe-islands | 1,448 | 1,278 | 1,278 | 88.3% | clean |
-| finland | 436,956 | 427,870 | 427,870 | 97.9% | clean |
-| france | (partial) | 0 | 0 | n/a | killed at 30 min, 0 polygons yielded |
-| germany | (partial) | 0 | 0 | n/a | killed at 33 min, 0 polygons yielded |
-| greece | 47,448 | 45,142 | 45,142 | 95.1% | clean |
-| guernsey-jersey | 766 | 670 | 670 | 87.5% | clean |
-| hungary | 83,715 | 77,569 | 77,569 | 92.7% | clean |
-| iceland | 48,298 | 47,896 | 47,896 | 99.2% | clean |
-| italy | (partial) | 26 | 26 | 96.3% | killed at 27 min, 27 polygons yielded |
-| isle-of-man | 2,664 | 2,648 | 2,648 | 99.4% | clean |
-| kosovo | 6,489 | 5,377 | 5,377 | 82.9% | clean |
-| latvia | 48,571 | 47,133 | 47,133 | 97.0% | clean |
-| liechtenstein | 585 | 565 | 565 | 96.6% | clean |
-| lithuania | 81,356 | 76,550 | 76,550 | 94.1% | clean |
-| luxembourg | 11,664 | 11,460 | 11,460 | 98.3% | clean |
-| malta | 697 | 620 | 620 | 89.0% | clean |
-| moldova | 35,908 | 35,690 | 35,690 | 99.4% | clean |
-| monaco | 5 | 2 | 2 | 40.0% | clean |
-| montenegro | 12,213 | 11,785 | 11,785 | 96.5% | clean |
-| netherlands | 154,943 | 151,073 | 169,468 | 109.4% | killed at 40 min, 169,468 polygons yielded (corrected: prior count of 151,073 was stale) |
-| norway | 58,174 | 0 | 0 | 0.0% | killed at 2:46:00, 58,174 polygons yielded, 0 ever classified (stuck on complex multipolygon in yield phase) |
-| poland | 133 | 133 | 133 | 100.0% | killed at 29 min, 133 polygons yielded |
-| portugal | 75,859 | 66,287 | 66,287 | 87.4% | clean |
-| romania | 122,112 | 115,401 | 115,401 | 94.5% | clean |
-| serbia | 54,032 | 47,189 | 47,189 | 87.3% | clean |
-| slovakia | 58,036 | 54,888 | 54,888 | 94.6% | clean |
-| slovenia | 42,156 | 41,526 | 41,526 | 98.5% | clean |
-| spain | 9,284 | 5,126 | 5,126 | 55.2% | killed at 40 min, 9,284 polygons yielded |
-| sweden | 405,005 | 397,661 | 397,661 | 98.2% | clean |
-| switzerland | 64,443 | 61,156 | 61,156 | 94.9% | clean |
-| turkey | 128,482 | 113,609 | 113,609 | 88.4% | clean |
-| ukraine | 652,070 | 645,578 | 645,578 | 99.0% | clean |
-| united-kingdom | 195 | 188 | 188 | 96.4% | killed at 26 min, 195 polygons yielded |
+See `dataset/manifest.json` (machine-readable) or `dataset/README.md`
+(human-readable). Top contributors:
+- germany: 1,131,888
+- ukraine: 645,578
+- poland: 637,908
+- france: 492,538
+- norway: 413,801
+- sweden: 397,661
+- italy: 276,991
+- spain: 240,230
+- united-kingdom: 205,002
+- netherlands: 207,459
 
 ### Extract status meaning
 
-- **clean**: Stage 0 finished writing the `.run.json` log file
-  before the process exited. Every OSM object in the PBF that
-  matched the size, area, WKT, and polygon-shape filters was
-  yielded and written to `01_extracted.jsonl`. Re-running the
-  extract on the same PBF would produce **the same output** (or
-  a superset, in the rare case where a polygon was on a relation
-  whose member way was not yet indexed when the area was yielded).
+- **clean**: Stage 0 finished writing at least one `.run.json` log
+  file before the process exited. For a country processed via the
+  national PBF, this means the merged `01_extracted.jsonl.run.json`
+  exists. For a country processed via regional sub-PBFs, this means
+  at least one `01_extracted_<region>.jsonl.run.json` exists. Either
+  way, every OSM object in the (sub-)PBF that matched the size, area,
+  WKT, and polygon-shape filters was yielded and written.
 
 - **killed mid-pipeline**: Stage 0 was interrupted before reaching
   the end of the PBF. The yielded polygons that made it to
   `01_extracted.jsonl` are valid and complete; a small tail of
-  polygons (typically the last few hundred) is missing. For the
-  largest PBFs (norway, germany, france), this is because
-  `osmium`'s multipolygon assembly phase hits a very complex
-  relation that takes 30+ minutes to process alone, blocking
-  throughput on everything else. Re-running extract on the same
-  PBF would skip the already-seen OSM IDs via the `.seen_ids` WAL
-  and resume yielding the remaining ones.
+  polygons (typically the last few hundred) is missing. Re-running
+  extract on the same PBF would skip the already-seen OSM IDs via
+  the `.seen_ids` WAL and resume yielding the remaining ones.
+
+### Why sub-PBFs?
+
+The "killed-mid-pipeline" issue from earlier sessions was caused
+by osmium's multipolygon assembly phase hanging for 30+ minutes on
+a single very complex relation. By breaking the country PBF into
+the smaller Geofabrik regional sub-PBFs, no single extract has to
+process the worst-case complex relation in isolation — the
+sub-PBFs are small enough that the assembly phase for each is
+manageable, and even the worst sub-PBF (bayern, 806 MB) completes
+in under 25 minutes.
 
 ### Countries currently in-progress or pending
 
-Three countries are pending: **norway, germany, france**. Each was
-attempted but killed before any polygons were yielded (osmium
-multipolygon assembly hung for 30+ minutes on a single complex
-relation). The `.seen_ids` WAL is preserved on disk for each, so the
-extract can be resumed (skipping already-seen OSM IDs) or the PBF can
-be re-extracted in a non-agent process that runs to completion.
+**None.** All 46 European countries are complete. To add more
+countries (e.g., overseas territories or non-European OSM regions),
+drop their Geofabrik PBF in `raw/` and run the pipeline:
+```
+scripts/run_country.sh <country>
+```
 
 ## How to regenerate the dataset
 
