@@ -96,7 +96,7 @@ size_categories:
 _ROOT_README_INTRO = """# osm-polygon-selection dataset
 
 A curated set of OpenStreetMap polygons across {n_countries}
-countries (mostly Europe, plus Morocco in North Africa),
+countries (mostly Europe, plus Morocco and Tunisia in North Africa),
 classified by **size bin** (`small` / `medium` / `large`, area in
 [0.1, 100] km²) and tagged by continent (Natural Earth admin0 lookup).
 

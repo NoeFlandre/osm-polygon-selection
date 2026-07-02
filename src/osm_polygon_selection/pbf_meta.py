@@ -17,6 +17,7 @@ DEFAULT_RAW_DIR = Path("/Volumes/Seagate M3/osm-polygon-selection/raw")
 # ``https://download.geofabrik.de/<region>/<country>.html``.
 NON_EUROPE_COUNTRIES: dict[str, str] = {
     "morocco": "africa",
+    "tunisia": "africa",
 }
 
 

@@ -189,7 +189,7 @@ exhaustive list use [`../combined/all_europe.parquet`](../combined/).
 _ROOT_README_INTRO = """# osm-polygon-selection dataset
 
 A curated set of OpenStreetMap polygons across {n_countries}
-countries (mostly Europe, plus Morocco in North Africa),
+countries (mostly Europe, plus Morocco and Tunisia in North Africa),
 classified by **size bin** (`small` / `medium` / `large`, area in
 [0.1, 100] km²) and tagged by continent (Natural Earth admin0 lookup).
 
@@ -497,6 +497,11 @@ COUNTRY_NOTES: dict[str, str] = {
                "PBF is from Geofabrik's /africa/ subtree. Strong "
                "urban mapping in coastal cities (Casablanca, Rabat, "
                "Marrakech); rural and Saharan regions are sparser.",
+    "tunisia": "Second North-African country in the dataset "
+               "(Geofabrik /africa/). Smallest PBF of the African "
+               "pair. Strong urban mapping along the Mediterranean "
+               "coast (Tunis, Sfax, Sousse); interior and Saharan "
+               "fringe have thinner coverage.",
     "netherlands": "Processed via 12 Geofabrik provincial sub-PBFs. "
                    "Among the best-mapped countries in the world.",
     "norway": "Processed via 6 Geofabrik regional sub-PBFs "

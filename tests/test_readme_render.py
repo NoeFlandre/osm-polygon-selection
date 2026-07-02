@@ -64,7 +64,9 @@ class TestBuildRootReadme:
             tmp_path,
         )
         assert "across 3" in out
-        assert "Morocco" in out  # mention of the non-European country
+        # non-European countries are explicitly called out
+        assert "Morocco" in out
+        assert "Tunisia" in out
 
     def test_mentions_total_polygons(self, tmp_path: Path) -> None:
         sample = tmp_path / "sample.jsonl"

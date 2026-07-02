@@ -37,6 +37,12 @@ class TestGeofabrikUrl:
             "https://download.geofabrik.de/africa/morocco.html"
         )
 
+    def test_tunisia_uses_africa_region(self) -> None:
+        """Tunisia, like Morocco, is in Geofabrik's /africa/ subtree."""
+        assert geofabrik_url("tunisia") == (
+            "https://download.geofabrik.de/africa/tunisia.html"
+        )
+
 
 class TestFormatPbfDate:
     def test_iso_date(self) -> None:
