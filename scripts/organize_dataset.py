@@ -52,6 +52,7 @@ from osm_polygon_selection.dataset_layout import (
 from osm_polygon_selection.git_meta import git_short_sha
 from osm_polygon_selection.paths import dataset_root
 from osm_polygon_selection.pbf_meta import geofabrik_url, pbf_date_for
+from osm_polygon_selection.pbf_meta import NON_EUROPE_COUNTRIES as _NON_EUROPE
 from osm_polygon_selection.readme_render import (
     PIPELINE_VERSION_DEFAULT,
     build_country_readme,
@@ -189,10 +190,9 @@ exhaustive list use [`../combined/all_europe.parquet`](../combined/).
 _ROOT_README_INTRO = """# osm-polygon-selection dataset
 
 A curated set of OpenStreetMap polygons across {n_countries}
-countries (mostly Europe, plus Morocco, Tunisia, and Algeria in
-North Africa), classified by **size bin** (`small` / `medium` /
-`large`, area in [0.1, 100] km²) and tagged by continent
-(Natural Earth admin0 lookup).
+countries (49 European + {n_non_europe} in Africa), classified by
+**size bin** (`small` / `medium` / `large`, area in [0.1, 100] km²)
+and tagged by continent (Natural Earth admin0 lookup).
 
 **Size bins:**
 
@@ -509,6 +509,67 @@ COUNTRY_NOTES: dict[str, str] = {
                "in coastal cities (Algiers, Oran, Constantine); the "
                "vast Saharan interior is sparsely mapped with mostly "
                "natural feature polygons (ergs, regs, wadis).",
+    # Tiny island nations / territories (Geofabrik /africa/)
+    "sao-tome-and-principe": "Small archipelago in the Gulf of "
+                              "Guinea. Geofabrik /africa/ PBF (~1.2 MB). "
+                              "One of the smallest countries in the "
+                              "dataset.",
+    "comores": "Volcanic archipelago in the Mozambique Channel. "
+               "Geofabrik /africa/ PBF (~4 MB).",
+    "seychelles": "Indian-ocean archipelago of 115+ islands. "
+                  "Geofabrik /africa/ PBF (~2.6 MB).",
+    "saint-helena-ascension-and-tristan-da-cunha": "British Overseas "
+                                                    "Territory in the "
+                                                    "South Atlantic. "
+                                                    "Geofabrik /africa/ "
+                                                    "PBF (~850 KB); "
+                                                    "smallest country "
+                                                    "in the dataset.",
+    "equatorial-guinea": "Central African country spanning islands "
+                         "and mainland. Geofabrik /africa/ PBF "
+                         "(~6 MB).",
+    "djibouti": "Horn-of-Africa country on the Red Sea. Geofabrik "
+                "/africa/ PBF (~7 MB).",
+    "mauritius": "Indian-ocean island nation east of Madagascar. "
+                 "Geofabrik /africa/ PBF (~9 MB).",
+    "guinea-bissau": "Small West-African country on the Atlantic. "
+                     "Geofabrik /africa/ PBF (~11 MB).",
+    "cape-verde": "Atlantic archipelago off West Africa. Geofabrik "
+                  "/africa/ PBF (~11 MB).",
+    "canary-islands": "Spanish archipelago off the coast of Morocco; "
+                      "classified under Geofabrik /africa/. PBF "
+                      "(~57 MB).",
+    "gabon": "Central African country on the equator; mostly "
+             "rainforest. Geofabrik /africa/ PBF (~24 MB).",
+    "congo-brazzaville": "Republic of the Congo (Brazzaville). "
+                         "Geofabrik /africa/ PBF (~31 MB).",
+    "burundi": "Small landlocked country in the African Great Lakes "
+               "region. Geofabrik /africa/ PBF (~44 MB).",
+    "sierra-leone": "West African country on the Atlantic coast. "
+                    "Geofabrik /africa/ PBF (~41 MB).",
+    "benin": "West African country (former Dahomey). Geofabrik "
+             "/africa/ PBF (~46 MB).",
+    "liberia": "West African country founded by freed US slaves. "
+               "Geofabrik /africa/ PBF (~36 MB).",
+    "namibia": "Southern African country with the Namib desert "
+               "stretching along the Atlantic coast. Geofabrik "
+               "/africa/ PBF (~52 MB).",
+    "rwanda": "Landlocked East African country. Geofabrik /africa/ "
+              "PBF (~63 MB).",
+    "togo": "Narrow West African country stretching north from the "
+            "Gulf of Guinea. Geofabrik /africa/ PBF (~59 MB).",
+    "libya": "North African country with mostly desert terrain "
+             "(Sahara). Geofabrik /africa/ PBF (~73 MB). Sparse "
+             "polygon coverage outside Tripoli and Benghazi.",
+    "niger": "Landlocked West African country; mostly Sahara and "
+             "Sahel. Geofabrik /africa/ PBF (~72 MB).",
+    "swaziland": "Small landlocked Southern African country "
+                 "(officially Eswatini). Geofabrik /africa/ PBF "
+                 "(~29 MB).",
+    "eritrea": "Horn-of-Africa country on the Red Sea. Geofabrik "
+               "/africa/ PBF (~30 MB).",
+    "mauritania": "North-West African country; mostly Sahara. "
+                  "Geofabrik /africa/ PBF (~29 MB).",
     "netherlands": "Processed via 12 Geofabrik provincial sub-PBFs. "
                    "Among the best-mapped countries in the world.",
     "norway": "Processed via 6 Geofabrik regional sub-PBFs "
@@ -706,6 +767,11 @@ def write_country_readmes(root: Path, manifest: dict) -> int:
     countries = manifest["countries"]
     for c_info in countries:
         c = c_info["country"]
+        # Skip countries with no parquet (e.g. killed-mid-pipeline or
+        # not yet extracted). Their per_country/<c>/ folder doesn't
+        # exist and writing a README there would fail.
+        if int(c_info.get("n_polygons", 0)) == 0:
+            continue
         out = root / "per_country" / c / "README.md"
         text = _COUNTRY_README_TEMPLATE.format(
             country=c,
@@ -917,6 +983,9 @@ size_categories:
 
     text = yaml_frontmatter + _ROOT_README_INTRO.format(
         n_countries=len(manifest["countries"]),
+        n_non_europe=sum(
+            1 for c in manifest["countries"] if c["country"] in _NON_EUROPE
+        ),
         status_line=status_line,
         total_polygons=manifest["total_polygons"],
         schema_table=schema_table,

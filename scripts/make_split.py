@@ -472,4 +472,9 @@ if __name__ == "__main__":
     args = _parse_args()
     ratios = {"train": args.train, "val": args.val, "test": args.test}
     out = make_split(root=args.root, seed=args.seed, ratios=ratios)
-    print(json.dumps({"counts": out["counts"], "n_countries": len(out["per_country_counts"])}, indent=2))
+    # Only count alive countries (those with non-zero polygons);
+    # countries with n_polygons==0 are recorded in the manifest as
+    # killed but shouldn't be in the split count.
+    n_alive = sum(1 for c in out["per_country_counts"].values()
+                  if sum(c.values()) > 0)
+    print(json.dumps({"counts": out["counts"], "n_countries": n_alive}, indent=2))

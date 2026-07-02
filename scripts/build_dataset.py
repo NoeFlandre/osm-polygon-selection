@@ -53,6 +53,7 @@ if GEOMETRY_ENCODING not in ("wkt", "wkb", "none"):
 from osm_polygon_selection.git_meta import git_sha
 from osm_polygon_selection.extract_status import extract_status as _extract_status
 from osm_polygon_selection.paths import dataset_root
+from osm_polygon_selection.pbf_meta import NON_EUROPE_COUNTRIES
 
 DATASET_DIR = dataset_root()  # honors $OSM_DATASET_DIR
 from osm_polygon_selection.schema_defs import (
@@ -495,10 +496,10 @@ size_categories:
 
     readme = yaml_frontmatter + f"""# osm-polygon-selection dataset
 
-A curated set of OpenStreetMap polygons across {len(countries_done)}
-European countries, classified by **size bin** (`small` /
-`medium` / `large`, area in [0.1, 100] km²) and tagged by continent
-(Natural Earth admin0 lookup).
+A curated set of OpenStreetMap polygons across {sum(1 for c in countries_done if c['n_polygons'] > 0)}
+countries (49 European + {sum(1 for c in countries_done if c['country'] in NON_EUROPE_COUNTRIES and c['n_polygons'] > 0)} in Africa),
+classified by **size bin** (`small` / `medium` / `large`, area in
+[0.1, 100] km²) and tagged by continent (Natural Earth admin0 lookup).
 
 **Size bins:**
 
@@ -817,7 +818,7 @@ def main() -> None:
         "git_sha": git_sha(),
         "built_at": datetime.now().isoformat(),
         "total_polygons": combined.num_rows,
-        "n_countries": len(countries_done),
+        "n_countries": sum(1 for c in countries_done if c["n_polygons"] > 0),
         "countries": countries_done,
         "schema": [f.name for f in build_schema()],
         "filters": {

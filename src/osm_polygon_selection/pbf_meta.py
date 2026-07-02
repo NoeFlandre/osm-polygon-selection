@@ -16,9 +16,65 @@ DEFAULT_RAW_DIR = Path("/Volumes/Seagate M3/osm-polygon-selection/raw")
 # here as we expand the project. The URL pattern is
 # ``https://download.geofabrik.de/<region>/<country>.html``.
 NON_EUROPE_COUNTRIES: dict[str, str] = {
+    # North Africa
     "morocco": "africa",
     "tunisia": "africa",
     "algeria": "africa",
+    "libya": "africa",
+    "egypt": "africa",
+    # West Africa
+    "senegal-and-gambia": "africa",
+    "guinea-bissau": "africa",
+    "guinea": "africa",
+    "sierra-leone": "africa",
+    "liberia": "africa",
+    "ivory-coast": "africa",
+    "ghana": "africa",
+    "togo": "africa",
+    "benin": "africa",
+    "burkina-faso": "africa",
+    "mali": "africa",
+    "mauritania": "africa",
+    "niger": "africa",
+    "nigeria": "africa",
+    # Central Africa
+    "cameroon": "africa",
+    "central-african-republic": "africa",
+    "chad": "africa",
+    "congo-brazzaville": "africa",
+    "congo-democratic-republic": "africa",
+    "equatorial-guinea": "africa",
+    "gabon": "africa",
+    # East Africa
+    "burundi": "africa",
+    "comores": "africa",
+    "djibouti": "africa",
+    "eritrea": "africa",
+    "ethiopia": "africa",
+    "kenya": "africa",
+    "rwanda": "africa",
+    "seychelles": "africa",
+    "somalia": "africa",
+    "south-sudan": "africa",
+    "sudan": "africa",
+    "tanzania": "africa",
+    "uganda": "africa",
+    "mauritius": "africa",
+    # Southern Africa
+    "angola": "africa",
+    "botswana": "africa",
+    "lesotho": "africa",
+    "malawi": "africa",
+    "mozambique": "africa",
+    "namibia": "africa",
+    "south-africa": "africa",
+    "swaziland": "africa",
+    "zambia": "africa",
+    "zimbabwe": "africa",
+    # Island territories
+    "canary-islands": "africa",
+    "sao-tome-and-principe": "africa",
+    "saint-helena-ascension-and-tristan-da-cunha": "africa",
 }
 
 

@@ -96,10 +96,9 @@ size_categories:
 _ROOT_README_INTRO = """# osm-polygon-selection dataset
 
 A curated set of OpenStreetMap polygons across {n_countries}
-countries (mostly Europe, plus Morocco, Tunisia, and Algeria in
-North Africa), classified by **size bin** (`small` / `medium` /
-`large`, area in [0.1, 100] km²) and tagged by continent
-(Natural Earth admin0 lookup).
+countries (49 European + {n_non_europe} in Africa), classified by
+**size bin** (`small` / `medium` / `large`, area in [0.1, 100] km²)
+and tagged by continent (Natural Earth admin0 lookup).
 
 **Size bins:**
 
@@ -294,6 +293,10 @@ def build_root_readme(manifest: dict, root: Path) -> str:
     n_countries = len(countries)
     total_polygons = manifest.get("total_polygons", 0)
 
+    # Imported lazily to avoid a circular import with paths.py.
+    from osm_polygon_selection.pbf_meta import NON_EUROPE_COUNTRIES
+    n_non_europe = sum(1 for c in countries if c["country"] in NON_EUROPE_COUNTRIES)
+
     sample_path = root / "sample" / "sample_map.jsonl"
     if not sample_path.is_file():
         sample_path = Path("/tmp/sample_map.jsonl")
@@ -321,6 +324,7 @@ def build_root_readme(manifest: dict, root: Path) -> str:
 
     text = _YAML_FRONTMATTER + _ROOT_README_INTRO.format(
         n_countries=n_countries,
+        n_non_europe=n_non_europe,
         total_polygons=total_polygons,
         schema_table=schema_table,
         pipeline_version=manifest.get("version", PIPELINE_VERSION_DEFAULT),

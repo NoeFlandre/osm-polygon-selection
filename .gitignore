@@ -22,3 +22,6 @@ data/
 
 # Local-only skills — never pushed to remote
 docs/skills/
+
+# Local agent memory (storage policy, TDD notes, etc.)
+.claude.md
