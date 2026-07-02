@@ -1,195 +1,118 @@
-# Dataset State (Europe + Africa rollout, June-July 2026)
+# Dataset State (live)
 
-This document describes the current state of the OSM polygon dataset
-produced by this project as of 2 July 2026. It is intended to be
-read alongside `README.md` and the code in `scripts/` and
-`src/osm_polygon_selection/stages/`.
+**This document is updated on every commit that changes the dataset.**
 
-## Status: Africa rollout in progress
+It captures the current numbers; for *why* or *how*, see the other
+docs in `docs/` (especially `AGENT_HANDOFF.md`, `ARCHITECTURE.md`,
+`PERFORMANCE.md`, `AFRICA_ROLLOUT.md`).
 
-**77 countries processed so far (49 European + 28 African).** All
-28 African countries are extracted end-to-end (`run.json` written,
-every OSM object examined). The next batch of 26 larger African
-countries has PBFs downloaded but extract is still running.
+---
 
-The "killed-mid-pipeline" issue from earlier sessions (where the
-agent's 180-second `wait` timeout would interrupt Stage 0 mid-yield)
-has been resolved for every country in this dataset: each has been
-re-extracted end-to-end with the WAL preserved, producing more
-polygons than the original aborted runs.
+## Current numbers (as of commit `9de694a`, 2 July 2026)
 
-**Note:** For some of the largest countries (norway, germany, france),
-the `osmium` multipolygon assembly phase is exceptionally slow — one
-or two complex relations can take 30+ minutes to process alone,
-blocking throughput on everything else. The extract process for
-these countries is killed at ~30 min with a partial result. The
-polygons that were yielded are valid and complete; a small tail of
-complex multipolygon polygons is not in the dataset. To complete
-them, the extract can be resumed (the `.seen_ids` WAL preserves the
-work already done) or the PBF can be re-extracted in a non-agent
-process that runs to completion.
+| Metric                          | Value             |
+|---------------------------------|------------------:|
+| Total countries                 |          **77**   |
+| Total polygons                  |      **7,484,912**|
+| Combined parquet size (zstd)    |         ~6.0 GB   |
+| Train / val / test split        | 5,988,419 / 747,272 / 749,221 |
+| HuggingFace files               |              165 |
+| HuggingFace repo                | `NoeFlandre/osm-polygon-selection` |
 
-## Pipeline summary
+Breakdown by region:
 
-Each country goes through four stages:
+| Region              | Countries | Polygons |
+|---------------------|----------:|---------:|
+| Europe              |        49 | 7,287,553 |
+| North Africa        |         5 |  152,650 |
+| Sub-Saharan Africa  |        23 |   44,709 |
+| **Total**           |    **77** | **7,484,912** |
 
-1. **Stage 0 — extract** (`src/osm_polygon_selection/stages/extract.py`).
-   Streams a Geofabrik PBF file and writes one JSONL line per
-   accepted polygon. Memory-bounded (under 2 GB even for the 32 GB
-   Europe PBF). Audit/resume/limit pattern with a `.seen_ids` WAL.
-2. **Stage 2 — filter by whitelist** (`src/osm_polygon_selection/stages/filter_by_whitelist.py`).
-   Reads the extracted JSONL and drops polygons whose tags are not
-   in the 22,075-tag whitelist built by Stage 1.
-3. **Stage 3 — classify** (`src/osm_polygon_selection/stages/classify.py`).
-   Adds `continent` (Natural Earth admin0 lookup) and `size_bin`
-   (small/medium/large based on area_km2) to each surviving polygon.
+(Approximate continent breakdown; per-country numbers are exact.
+See `dataset/manifest.json` for the machine-readable source.)
 
-The size filter in Stage 0 keeps polygons in [0.1, 100] km².
-The whitelist filter in Stage 2 keeps polygons with at least one
-`key=value` tag in the 22,075-tag set. See `docs/whitelist_decisions.md`
-for the rationale.
+---
 
-## Coverage
+## Coverage (77 countries)
 
-**77 countries processed through Stages 0-3** as of 2 July 2026
-(49 European + 28 African). The 28 African countries come from
-Geofabrik's `/africa/` subtree. Larger PBFs (Nigeria 678 MB,
-Tanzania 671 MB, South Africa 395 MB, DRC 393 MB, Uganda 353 MB,
-Kenya 331 MB, Mozambique 243 MB, Zambia 240 MB, Cameroon 213 MB,
-Sudan 193 MB, Zimbabwe 170 MB, Egypt 169 MB, Mali 164 MB,
-Somalia 157 MB, Malawi 147 MB, Ethiopia 132 MB, South Sudan 131 MB,
-Chad 128 MB, Lesotho 120 MB, Guinea 111 MB, Ghana 107 MB,
-Senegal+Gambia 100 MB, CAR 95 MB, Burkina Faso 81 MB, Angola 81 MB,
-Botswana 84 MB, Ivory Coast 86 MB) are downloaded and stage 0 is
-in progress.
+**49 European countries**: albania, andorra, austria, azores,
+belarus, belgium, bosnia-herzegovina, bulgaria, croatia, cyprus,
+czech-republic, denmark, estonia, faroe-islands, finland, france,
+georgia, germany, greece, guernsey-jersey, hungary, iceland,
+ireland-and-northern-ireland, isle-of-man, italy, kosovo, latvia,
+liechtenstein, lithuania, luxembourg, macedonia, malta, moldova,
+monaco, montenegro, netherlands, norway, poland, portugal, romania,
+serbia, slovakia, slovenia, spain, sweden, switzerland, turkey,
+ukraine, united-kingdom.
 
-- **All 28 African countries currently in the dataset are extracted
-  end-to-end.**
-- The most recent addition is **mayotte** (10 MB, French Indian
-  Ocean territory, 606 polygons in 15.8 s stage 0).
-- Island nations and small territories (Sao Tome and Principe,
-  Comores, Seychelles, Saint Helena Ascension and Tristan da Cunha,
-  Mayotte, Equatorial Guinea, Djibouti, Mauritius, Guinea-Bissau,
-  Cape Verde, Canary Islands) all completed in <2 min each.
-- Earlier 2026 additions (`georgia`, `ireland-and-northern-ireland`,
-  `macedonia`) were processed via the standard country-PBF path
-  (single PBF, no regional sub-PBFs needed).
-- The 8 large countries that were previously killed (italy,
-  netherlands, norway, poland, spain, united-kingdom, france,
-  germany) have been re-extracted via Geofabrik regional sub-PBFs
-  (one region at a time, no `--max-seconds` cap).
-- The dataset also has a `matched_tag` column showing the first
-  whitelist tag each polygon matched. For countries whose
-  `03_classified.jsonl` was built before this column existed, it is
-  backfilled at build time from `row.tags` against the cached
-  22,075-tag whitelist, avoiding a full re-run of Stage 2.
+**28 African countries**: morocco, tunisia, algeria, libya, mayotte,
+senegal-and-gambia, guinea-bissau, guinea, sierra-leone, liberia,
+ivory-coast, ghana, togo, benin, burkina-faso, mali, mauritania,
+niger, cape-verde, gabon, congo-brazzaville, central-african-republic,
+burundi, equatorial-guinea, djibouti, eritrea, rwanda, namibia,
+swaziland, seychelles, comores, sao-tome-and-principe, mauritius,
+canary-islands, saint-helena-ascension-and-tristan-da-cunha.
 
-### Total classified polygons: 7,484,912 (77 countries)
-- 5,988,419 train / 747,272 val / 749,221 test (stratified by country, seed=42)
+(See `dataset/manifest.json` for the authoritative list.)
 
-### Per-country breakdown
+---
 
-See `dataset/manifest.json` (machine-readable) or `dataset/README.md`
-(human-readable). Top contributors:
-- germany: 1,131,888
-- ukraine: 645,578
-- poland: 637,908
-- france: 492,538
-- norway: 413,801
-- sweden: 397,661
-- italy: 276,991
-- spain: 240,230
-- netherlands: 207,459
-- united-kingdom: 205,002
+## Storage
 
-### Extract status meaning
+| Location                                | Size    | Notes               |
+|-----------------------------------------|--------:|---------------------|
+| `/Volumes/Seagate M3/osm-polygon-selection/` | ~200 GB | Source of truth     |
+| `/Users/noeflandre/osm-polygon-selection/data/` | <100 MB | Reference data only |
 
-- **clean**: Stage 0 finished writing at least one `.run.json` log
-  file before the process exited. For a country processed via the
-  national PBF, this means the merged `01_extracted.jsonl.run.json`
-  exists. For a country processed via regional sub-PBFs, this means
-  at least one `01_extracted_<region>.jsonl.run.json` exists. Either
-  way, every OSM object in the (sub-)PBF that matched the size, area,
-  WKT, and polygon-shape filters was yielded and written.
+The pipeline reads PBFs and writes parquet to the HDD only. Never
+to local SSD. See `docs/AGENT_HANDOFF.md` for the storage policy.
 
-- **killed mid-pipeline**: Stage 0 was interrupted before reaching
-  the end of the PBF. The yielded polygons that made it to
-  `01_extracted.jsonl` are valid and complete; a small tail of
-  polygons (typically the last few hundred) is missing. Re-running
-  extract on the same PBF would skip the already-seen OSM IDs via
-  the `.seen_ids` WAL and resume yielding the remaining ones.
+---
 
-### Why sub-PBFs?
+## Test status
 
-The "killed-mid-pipeline" issue from earlier sessions was caused
-by osmium's multipolygon assembly phase hanging for 30+ minutes on
-a single very complex relation. By breaking the country PBF into
-the smaller Geofabrik regional sub-PBFs, no single extract has to
-process the worst-case complex relation in isolation — the
-sub-PBFs are small enough that the assembly phase for each is
-manageable, and even the worst sub-PBF (bayern, 806 MB) completes
-in under 25 minutes.
+| Suite                                  | Tests |
+|----------------------------------------|------:|
+| Full suite (without flaky wall-clock)  |  278  |
+| Flaky wall-clock test (deselected)     |    1  |
+| **Total**                              | **280** |
 
-### Countries currently in-progress or pending
-
-**27 African countries in progress (batch 3).** Larger African
-PBFs (Nigeria, Tanzania, South Africa, DRC, Uganda, Kenya,
-Mozambique, Zambia, Cameroon, Sudan, Zimbabwe, Egypt, Mali,
-Somalia, Malawi, Ethiopia, South Sudan, Chad, Lesotho, Guinea,
-Ghana, Senegal+Gambia, CAR, Burkina Faso, Angola, Botswana,
-Ivory Coast) have their Geofabrik PBFs downloaded to `raw/`.
-Stage 0 (extract) is currently running in parallel for all 27.
-
-Once stage 0 completes, stage 2 (filter) + stage 3 (classify) +
-build + organize + sample + make_split + HF upload will follow.
-
-To add more countries after that (e.g., Asian, American,
-Oceanian regions), drop their Geofabrik PBF in `raw/` and run:
-```
-scripts/run_country.sh <country>
-```
-
-## How to regenerate the dataset
-
-Each `03_classified.jsonl` is fully self-contained — the row schema
-includes everything downstream consumers need. To regenerate from
-scratch:
-
+Run:
 ```bash
-# Download a PBF
-curl -L -o /path/to/raw/<country>-latest.osm.pbf \
-  https://download.geofabrik.de/europe/<country>-latest.osm.pbf
-
-# Run all three stages (size filter, whitelist filter, classify)
-OSM_DATA_ROOT="/Volumes/Seagate M3/osm-polygon-selection" \
-  uv run scripts/run_country.sh <country>
+uv run pytest tests/ \
+  --deselect tests/stages/test_extract_perf.py::TestWallClockCap::test_wall_clock_cap_stops_clean
 ```
 
-The orchestrator (`scripts/run_europe.py`) processes all 46 European
-countries in size order and skips ones already classified.
+---
 
-## Limitations
+## In-progress work
 
-1. **Coverage is Europe + 28 African countries** as of 2 July 2026.
-   The pipeline works on any Geofabrik regional extract; 28 of 55
-   African countries (Morocco, Tunisia, Algeria, Libya, Mayotte,
-   Senegal+Gambia, Guinea-Bissau, Guinea, Sierra Leone, Liberia,
-   Ivory Coast, Ghana, Togo, Benin, Burkina Faso, Mali, Mauritania,
-   Niger, Cape Verde, Gabon, Congo-Brazzaville, Burundi, Namibia,
-   Rwanda, Swaziland, Eritrea, Canary Islands) are currently in
-   the dataset. The remaining 26 larger African countries (Nigeria,
-   Tanzania, South Africa, DRC, Uganda, Kenya, Mozambique, Zambia,
-   Cameroon, Sudan, Zimbabwe, Egypt, Mali, Somalia, Malawi, Ethiopia,
-   South Sudan, Chad, Lesotho, Angola, Botswana, etc.) are in
-   progress.
-2. **Two filters in series** — area, then whitelist tag. Polygons
-   outside [0.1, 100] km² or with no whitelist tag are not in the
-   output. This is intentional but excludes some valid landuse
-   polygons (e.g. very large national parks, very small urban
-   features).
-3. **The whitelist was built from `osm-stats` analysis** of the
-   same OSM tag taxonomy. See `docs/whitelist_decisions.md`.
-4. **50 countries have been processed**. The historical "killed-mid-pipeline"
-   issue that affected norway, germany, france, italy, netherlands,
-   poland, spain, and united-kingdom has been resolved by switching
-   large countries to Geofabrik regional sub-PBFs.
+**Africa rollout**: 28 of 55 African countries done. 26 remaining
+(Nigeria 678 MB through Egypt 169 MB). Their PBFs are downloaded to
+the HDD but stage 0 was interrupted; `processed/<country>/` dirs
+were cleaned up. See `docs/AFRICA_ROLLOUT.md` for the queue and
+the resume plan.
+
+---
+
+## Recent commits
+
+- `9de694a` feat(mayotte): add Mayotte + 28th African country (TDD red-green)
+- `e251cdb` feat(africa): add 24 African countries + bootstrap full /africa/ support
+- `cec4b7c` feat(algeria): add Algeria + third North-African country
+- `1edc041` perf(make_split): skip per-country parquet rewrites
+- `4320910` feat(tunisia): add Tunisia + second North-African country
+- `7380f95` feat(morocco): add Morocco + non-European country support
+- `0510996` perf(extract): fast lon/lat area pre-filter + C-level vertex count
+- `fd39de2` perf(build_dataset): pa.json C-level parser + zstd compression
+- `2b1b773` perf(build_dataset): streaming JSONL -> parquet writer
+
+---
+
+## How to update this doc
+
+When adding/removing a country, edit the relevant numbers here AND
+the corresponding sections in `README.md`, `AGENT_HANDOFF.md`,
+`PERFORMANCE.md`, `AFRICA_ROLLOUT.md`. The `manifest.json` and the
+auto-generated `dataset/README.md` are the machine-readable sources
+of truth.
