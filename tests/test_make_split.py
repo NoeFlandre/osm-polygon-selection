@@ -101,15 +101,24 @@ def test_split_ratios_sum_to_one():
 
 
 def test_split_assigns_all_rows(tmp_path):
-    """Every input row gets one of {train, val, test}; no nulls."""
+    """Every input row gets one of {train, val, test}; no nulls.
+
+    Note: per-country parquets are NOT rewritten -- the `split`
+    column is only persisted in the combined parquet. This test
+    reads from the combined file and groups by country.
+    """
     ms = _load_make_split()
     root = _make_split_dataset(tmp_path, {"albania": 50, "andorra": 30})
     ms.make_split(root=root, seed=42)
-    for c in ("albania", "andorra"):
-        t = pq.read_table(root / "per_country" / c / f"{c}.parquet",
-                          columns=["split"])
-        splits = t["split"].to_pylist()
-        assert len(splits) == ({c: 50, "andorra": 30})[c]
+    combined = pq.read_table(
+        root / "combined" / "all_europe.parquet",
+        columns=["split", "country"],
+    )
+    df = combined.to_pandas()
+    for c, expected_n in (("albania", 50), ("andorra", 30)):
+        sub = df[df["country"] == c]
+        splits = sub["split"].tolist()
+        assert len(splits) == expected_n
         assert all(s in ("train", "val", "test") for s in splits), (
             f"unexpected split values in {c}: {set(splits)}"
         )
@@ -161,7 +170,11 @@ def test_split_stratifies_by_country(tmp_path):
 
 
 def test_split_is_deterministic(tmp_path):
-    """Running with the same seed twice produces identical assignments."""
+    """Running with the same seed twice produces identical assignments.
+
+    Per-country parquets are NOT rewritten, so we compare from the
+    combined parquet (the only place where the split is persisted).
+    """
     ms = _load_make_split()
     root1 = _make_split_dataset(tmp_path / "run1", {"albania": 100, "andorra": 50})
     root2 = _make_split_dataset(tmp_path / "run2", {"albania": 100, "andorra": 50})
@@ -170,11 +183,17 @@ def test_split_is_deterministic(tmp_path):
     ms.make_split(root=root2, seed=42)
 
     for c in ("albania", "andorra"):
-        t1 = pq.read_table(root1 / "per_country" / c / f"{c}.parquet",
-                           columns=["split"]).column("split").to_pylist()
-        t2 = pq.read_table(root2 / "per_country" / c / f"{c}.parquet",
-                           columns=["split"]).column("split").to_pylist()
-        assert t1 == t2, f"non-deterministic split for {c}"
+        t1 = pq.read_table(
+            root1 / "combined" / "all_europe.parquet",
+            columns=["split", "country"],
+        ).to_pandas()
+        t2 = pq.read_table(
+            root2 / "combined" / "all_europe.parquet",
+            columns=["split", "country"],
+        ).to_pandas()
+        s1 = t1[t1["country"] == c]["split"].tolist()
+        s2 = t2[t2["country"] == c]["split"].tolist()
+        assert s1 == s2, f"non-deterministic split for {c}"
 
 
 def test_split_different_seeds_differ(tmp_path):
@@ -186,12 +205,18 @@ def test_split_different_seeds_differ(tmp_path):
     ms.make_split(root=root1, seed=42)
     ms.make_split(root=root2, seed=43)
 
-    t1 = pq.read_table(root1 / "per_country" / "albania" / "albania.parquet",
-                       columns=["split"]).column("split").to_pylist()
-    t2 = pq.read_table(root2 / "per_country" / "albania" / "albania.parquet",
-                       columns=["split"]).column("split").to_pylist()
-    assert t1 != t2, "seed 42 and 43 produced identical splits"
-    n_diffs = sum(1 for a, b in zip(t1, t2) if a != b)
+    t1 = pq.read_table(
+        root1 / "combined" / "all_europe.parquet",
+        columns=["split", "country"],
+    ).to_pandas()
+    t2 = pq.read_table(
+        root2 / "combined" / "all_europe.parquet",
+        columns=["split", "country"],
+    ).to_pandas()
+    s1 = t1[t1["country"] == "albania"]["split"].tolist()
+    s2 = t2[t2["country"] == "albania"]["split"].tolist()
+    assert s1 != s2, "seed 42 and 43 produced identical splits"
+    n_diffs = sum(1 for a, b in zip(s1, s2) if a != b)
     assert n_diffs > 0, "at least one row should differ between seeds"
 
 
@@ -223,11 +248,16 @@ def test_split_manifest_has_required_keys(tmp_path):
 
 
 def test_split_writes_split_column_to_parquet(tmp_path):
-    """After running, the per-country parquet has a `split` column of type string."""
+    """After running, the combined parquet has a `split` column of type string.
+
+    Note: per-country parquets are NOT rewritten (the split column is
+    only persisted in the combined file). See the
+    ``test_per_country_parquets_*`` tests for the new contract.
+    """
     ms = _load_make_split()
     root = _make_split_dataset(tmp_path, {"albania": 25})
     ms.make_split(root=root, seed=42)
-    t = pq.read_table(root / "per_country" / "albania" / "albania.parquet")
+    t = pq.read_table(root / "combined" / "all_europe.parquet")
     assert "split" in t.schema.names, f"split column missing; got {t.schema.names}"
     split_col = t.column("split")
     assert pa.types.is_string(split_col.type), (
@@ -335,3 +365,92 @@ def test_streaming_write_combined_no_intermediate_concat_table(tmp_path, monkeyp
     monkeypatch.setattr(pa, "concat_tables", _explode)
     n_combined = ms._write_combined_streaming(root)
     assert n_combined == 80
+
+
+# --- perf optimization: skip per-country parquet rewrites -----------------
+
+
+def test_per_country_parquets_not_rewritten_after_split(tmp_path):
+    """make_split() must NOT rewrite per-country parquets (no split
+    column is persisted in them).
+
+    Rationale: only the combined parquet is consumed by training; the
+    per-country files contain the same rows and don't need a redundant
+    split column. Skipping the per-country rewrite drops wall-clock
+    by ~8-10 min on the real 51-country dataset.
+
+    This test pins the contract: after make_split(), the per-country
+    parquet's last_modified timestamp is unchanged from before the
+    call (no rewrite happened). We use a small dataset because the
+    contract is independent of size.
+    """
+    import os
+
+    ms = _load_make_split()
+    root = _make_split_dataset(tmp_path, {"albania": 30, "andorra": 10})
+
+    # Snapshot timestamps BEFORE make_split().
+    pq_paths = {
+        c: root / "per_country" / c / f"{c}.parquet"
+        for c in ("albania", "andorra")
+    }
+    mtimes_before = {c: os.path.getmtime(p) for c, p in pq_paths.items()}
+
+    ms.make_split(root=root, seed=42)
+
+    # After make_split(), per-country parquets must NOT have been
+    # rewritten -- their mtime should be unchanged.
+    for c, p in pq_paths.items():
+        mtime_after = os.path.getmtime(p)
+        assert mtime_after == mtimes_before[c], (
+            f"per-country parquet {c} was rewritten "
+            f"(mtime: {mtimes_before[c]} -> {mtime_after}); "
+            f"make_split must NOT rewrite per-country parquets"
+        )
+
+
+def test_per_country_parquets_have_no_split_column_after_split(tmp_path):
+    """make_split() must NOT append a `split` column to per-country
+    parquets (it should only be persisted in the combined file).
+    """
+    ms = _load_make_split()
+    root = _make_split_dataset(tmp_path, {"albania": 30, "andorra": 10})
+    ms.make_split(root=root, seed=42)
+
+    for c in ("albania", "andorra"):
+        pq_path = root / "per_country" / c / f"{c}.parquet"
+        schema = pq.read_schema(pq_path)
+        assert "split" not in schema.names, (
+            f"per-country parquet {c} unexpectedly has a 'split' column "
+            f"after make_split(); only the combined parquet should have it"
+        )
+
+
+def test_combined_parquet_has_split_column_after_split(tmp_path):
+    """make_split() must still write the `split` column to the combined
+    parquet, with correct values, after the optimization.
+    """
+    ms = _load_make_split()
+    root = _make_split_dataset(tmp_path, {"albania": 50, "andorra": 30})
+    ms.make_split(root=root, seed=42)
+
+    combined = root / "combined" / "all_europe.parquet"
+    assert combined.is_file()
+    t = pq.read_table(combined, columns=["split", "country"])
+    assert "split" in t.schema.names
+    assert t.num_rows == 80
+    # All split values are valid and the same as what the manifest records.
+    manifest = json.loads(
+        (root / "splits" / "split_manifest.json").read_text()
+    )
+    expected_per_country = manifest["per_country_counts"]
+    actual_per_country: dict[str, dict[str, int]] = {}
+    for c in expected_per_country:
+        actual_per_country[c] = {"train": 0, "val": 0, "test": 0}
+    df = t.to_pandas()
+    for c, split_name in zip(df["country"].tolist(), df["split"].tolist()):
+        actual_per_country[c][split_name] += 1
+    assert actual_per_country == expected_per_country, (
+        f"combined split counts {actual_per_country} != "
+        f"manifest {expected_per_country}"
+    )

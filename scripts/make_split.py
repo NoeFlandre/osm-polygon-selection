@@ -246,7 +246,13 @@ def _write_combined(root: Path) -> int:
     return combined.num_rows
 
 
-def _write_combined_streaming(root: Path) -> int:
+def _write_combined_streaming(
+    root: Path,
+    *,
+    seed: int = DEFAULT_SEED,
+    ratios: dict[str, float] | None = None,
+    manifest: dict | None = None,
+) -> int:
     """Streaming alternative to ``_write_combined``.
 
     Concatenates per-country parquets WITHOUT materializing them all
@@ -254,13 +260,31 @@ def _write_combined_streaming(root: Path) -> int:
     them one at a time to ``combined/all_europe.parquet`` via
     ``ParquetWriter.write_batch``.
 
+    The combined parquet has the same columns as the per-country
+    parquets PLUS a trailing ``split`` column. Each row group
+    receives its slice of the deterministic split assignment
+    (``assign_split_for_country(country_index, seed, ratios)``) so
+    per-row split membership is consistent with
+    ``split_manifest.json``.
+
+    Per-country parquets are NEVER rewritten here. The split column
+    is only persisted in the combined file.
+
     Returns the number of rows written.
     """
     import os
     import tempfile
 
-    manifest = _read_manifest(root)
-    # Use the schema of the first non-empty per-country parquet.
+    if ratios is None:
+        ratios = DEFAULT_RATIOS
+    if manifest is None:
+        manifest = _read_manifest(root)
+
+    # Use the schema of the first non-empty per-country parquet, plus
+    # a trailing 'split' column. Per-country parquets may already have
+    # a legacy `split` column from previous runs (before the
+    # optimization that stopped rewriting them) -- strip it from the
+    # output schema so we don't end up with duplicates.
     base_schema = None
     for c_info in manifest["countries"]:
         c = c_info["country"]
@@ -270,6 +294,12 @@ def _write_combined_streaming(root: Path) -> int:
             break
     if base_schema is None:
         raise RuntimeError("no per-country parquets to combine")
+
+    if "split" in base_schema.names:
+        base_schema = pa.schema(
+            [f for f in base_schema if f.name != "split"],
+        )
+    combined_schema = base_schema.append(pa.field("split", _SPLIT_TYPE))
 
     out = root / "combined" / "all_europe.parquet"
     out.parent.mkdir(parents=True, exist_ok=True)
@@ -281,34 +311,53 @@ def _write_combined_streaming(root: Path) -> int:
     try:
         writer = pq.ParquetWriter(
             tmp_path,
-            base_schema,
+            combined_schema,
             compression=COMPRESSION,
             compression_level=COMPRESSION_LEVEL,
             write_page_index=True,
         )
         try:
-            for c_info in manifest["countries"]:
+            for idx, c_info in enumerate(manifest["countries"]):
                 c = c_info["country"]
                 pq_path = root / "per_country" / c / f"{c}.parquet"
                 if not pq_path.is_file():
                     continue
                 src = pq.ParquetFile(pq_path)
+                n_rows = sum(
+                    src.metadata.row_group(i).num_rows
+                    for i in range(src.num_row_groups)
+                )
+                # Deterministic split for this country.
+                splits = assign_split_for_country(
+                    n_rows, idx, seed, ratios,
+                )
+                row_offset = 0
                 for rg_idx in range(src.num_row_groups):
-                    # read_row_group returns a Table; convert to RecordBatch.
+                    # Read one row group (per-country data).
                     tbl = src.read_row_group(rg_idx)
                     batch = pa.RecordBatch.from_arrays(
                         [tbl.column(i).combine_chunks() for i in range(tbl.num_columns)],
                         schema=tbl.schema,
                     )
+                    # Strip any legacy `split` column from previous runs.
+                    if "split" in batch.schema.names:
+                        idx = batch.schema.get_field_index("split")
+                        batch = batch.remove_column(idx)
+                    rg_rows = batch.num_rows
+                    rg_splits = pa.array(
+                        splits[row_offset:row_offset + rg_rows].tolist(),
+                        type=_SPLIT_TYPE,
+                    )
+                    batch = batch.append_column("split", rg_splits)
                     # Re-chunk the row group into smaller slices so the
                     # combined file respects ROW_GROUP_SIZE (HF viewer
                     # wants < 300 MB per row group).
                     pos = 0
-                    rg_rows = batch.num_rows
                     while pos < rg_rows:
                         end = min(pos + ROW_GROUP_SIZE, rg_rows)
                         writer.write_batch(batch.slice(pos, end - pos))
                         pos = end
+                    row_offset += rg_rows
                     total_rows += rg_rows
         finally:
             writer.close()
@@ -332,11 +381,11 @@ def make_split(
 ) -> dict:
     """Run the full split pipeline. Returns the manifest dict.
 
-    For each country in the manifest:
-    - assign splits using a global RNG (seed + country_index)
-    - append a ``split`` column to the per-country parquet
-    Then rebuild combined/all_europe.parquet and write
-    splits/split_manifest.json.
+    The split is deterministic from ``(seed, country_index, n_rows)``.
+    Per-country parquets are NEVER rewritten -- only the combined
+    parquet gets a trailing ``split`` column. The split_manifest.json
+    records the per-country counts so downstream readers can verify
+    membership without re-walking the combined file.
 
     Countries with zero polygons (recorded but no parquet) are
     counted as zero rows in the manifest and skipped in the parquet
@@ -350,6 +399,8 @@ def make_split(
     per_country_counts: dict[str, dict[str, int]] = {}
     counts = {"train": 0, "val": 0, "test": 0}
 
+    # Pre-compute splits for each country (deterministic from seed +
+    # country_index) so we can tally without re-reading parquets.
     for idx, c_info in enumerate(manifest["countries"]):
         c = c_info["country"]
         n = int(c_info.get("n_polygons", 0))
@@ -357,15 +408,7 @@ def make_split(
             per_country_counts[c] = {"train": 0, "val": 0, "test": 0}
             continue
 
-        pq_path = root / "per_country" / c / f"{c}.parquet"
-        if not pq_path.is_file():
-            print(f"  {c}: SKIP (no parquet at {pq_path})", file=sys.stderr)
-            per_country_counts[c] = {"train": 0, "val": 0, "test": 0}
-            continue
-
         splits = assign_split_for_country(n, idx, seed, ratios)
-        _add_split_column_streaming(pq_path, splits)
-
         # Tally.
         unique, c_counts = np.unique(splits, return_counts=True)
         per_country_counts[c] = {k: 0 for k in _SPLIT_NAMES}
@@ -379,8 +422,10 @@ def make_split(
             f"test={per_country_counts[c]['test']}"
         )
 
-    # Rebuild combined parquet.
-    n_combined = _write_combined_streaming(root)
+    # Rebuild combined parquet (only place that persists `split`).
+    n_combined = _write_combined_streaming(
+        root, seed=seed, ratios=ratios, manifest=manifest,
+    )
     print(f"\ncombined/all_europe.parquet rebuilt with {n_combined:,} rows")
 
     out_manifest = {
