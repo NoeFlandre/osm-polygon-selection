@@ -7,9 +7,10 @@ read alongside `README.md` and the code in `scripts/` and
 
 ## Status: all countries complete
 
-**All 51 countries (49 European + Morocco + Tunisia) processed so far
-have been extracted to completion (`run.json` written, every OSM
-object in the PBF examined). No country is currently killed-mid-pipeline.**
+**All 52 countries (49 European + Morocco + Tunisia + Algeria)
+processed so far have been extracted to completion (`run.json`
+written, every OSM object in the PBF examined). No country is
+currently killed-mid-pipeline.**
 
 The "killed-mid-pipeline" issue from earlier sessions (where the
 agent's 180-second `wait` timeout would interrupt Stage 0 mid-yield)
@@ -50,16 +51,19 @@ for the rationale.
 
 ## Coverage
 
-**51 countries processed through Stages 0-3** as of 2 July 2026
-(49 European + Morocco and Tunisia in North Africa). Morocco and
-Tunisia are the first non-European countries in the dataset; their
-PBFs come from Geofabrik's `/africa/` subtree.
+**52 countries processed through Stages 0-3** as of 2 July 2026
+(49 European + Morocco, Tunisia, and Algeria in North Africa). The
+three non-European countries are sourced from Geofabrik's `/africa/`
+subtree.
 
-- **All 51 countries are extracted end-to-end.** No country is
+- **All 52 countries are extracted end-to-end.** No country is
   currently killed-mid-pipeline.
-- The most-recent additions are **tunisia** (Geofabrik `/africa/`,
-  8,498 polygons from an 80 MB PBF in 2.3 min) and **morocco**
-  (Geofabrik `/africa/`, 42,623 polygons from a 231 MB PBF in 3.4 min).
+- The most-recent addition is **algeria** (Geofabrik `/africa/`,
+  32,601 polygons from a 284 MB PBF in 6.6 min). It's the largest
+  African PBF in the dataset by file size.
+- Earlier African additions: **tunisia** (8,498 polygons from
+  80 MB in 2.3 min) and **morocco** (42,623 polygons from 231 MB
+  in 3.4 min).
 - Earlier 2026 additions (`georgia`, `ireland-and-northern-ireland`,
   `macedonia`) were processed via the standard country-PBF path
   (single PBF, no regional sub-PBFs needed).
@@ -73,8 +77,8 @@ PBFs come from Geofabrik's `/africa/` subtree.
   backfilled at build time from `row.tags` against the cached
   22,075-tag whitelist, avoiding a full re-run of Stage 2.
 
-### Total classified polygons: 7,353,903 (51 countries)
-- 5,883,250 train / 734,430 val / 736,223 test (stratified by country, seed=42)
+### Total classified polygons: 7,386,504 (52 countries)
+- 5,906,195 train / 739,375 val / 740,934 test (stratified by country, seed=42)
 
 ### Per-country breakdown
 
@@ -121,10 +125,10 @@ in under 25 minutes.
 
 ### Countries currently in-progress or pending
 
-**None.** All 51 countries (49 European + Morocco + Tunisia) are
-complete. To add more countries (e.g., overseas territories or other
-non-European OSM regions), drop their Geofabrik PBF in `raw/` and run
-the pipeline:
+**None.** All 52 countries (49 European + Morocco + Tunisia +
+Algeria) are complete. To add more countries (e.g., overseas
+territories or other non-European OSM regions), drop their Geofabrik
+PBF in `raw/` and run the pipeline:
 ```
 scripts/run_country.sh <country>
 ```
@@ -150,10 +154,10 @@ countries in size order and skips ones already classified.
 
 ## Limitations
 
-1. **Coverage is Europe + North Africa (Morocco + Tunisia)** as of
-   July 2026. The pipeline works on any Geofabrik regional extract;
-   Morocco and Tunisia are the first two non-European countries in
-   the dataset.
+1. **Coverage is Europe + North Africa (Morocco, Tunisia, Algeria)**
+   as of July 2026. The pipeline works on any Geofabrik regional
+   extract; Morocco, Tunisia, and Algeria are the three
+   non-European countries in the dataset.
 2. **Two filters in series** — area, then whitelist tag. Polygons
    outside [0.1, 100] km² or with no whitelist tag are not in the
    output. This is intentional but excludes some valid landuse

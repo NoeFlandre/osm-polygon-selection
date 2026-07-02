@@ -67,6 +67,7 @@ class TestBuildRootReadme:
         # non-European countries are explicitly called out
         assert "Morocco" in out
         assert "Tunisia" in out
+        assert "Algeria" in out
 
     def test_mentions_total_polygons(self, tmp_path: Path) -> None:
         sample = tmp_path / "sample.jsonl"

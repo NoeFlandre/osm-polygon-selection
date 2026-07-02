@@ -18,6 +18,7 @@ DEFAULT_RAW_DIR = Path("/Volumes/Seagate M3/osm-polygon-selection/raw")
 NON_EUROPE_COUNTRIES: dict[str, str] = {
     "morocco": "africa",
     "tunisia": "africa",
+    "algeria": "africa",
 }
 
 
