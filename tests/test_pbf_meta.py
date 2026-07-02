@@ -30,6 +30,13 @@ class TestGeofabrikUrl:
             "https://download.geofabrik.de/europe/ireland-and-northern-ireland.html"
         )
 
+    def test_non_europe_country_uses_correct_region(self) -> None:
+        """Countries outside /europe/ (e.g. morocco) get their
+        continent subtree URL."""
+        assert geofabrik_url("morocco") == (
+            "https://download.geofabrik.de/africa/morocco.html"
+        )
+
 
 class TestFormatPbfDate:
     def test_iso_date(self) -> None:

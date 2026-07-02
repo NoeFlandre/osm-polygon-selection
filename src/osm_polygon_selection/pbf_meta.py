@@ -12,14 +12,24 @@ from pathlib import Path
 # Default raw-PBF directory on the external HDD.
 DEFAULT_RAW_DIR = Path("/Volumes/Seagate M3/osm-polygon-selection/raw")
 
+# Countries outside the /europe/ Geofabrik tree. Add new regions
+# here as we expand the project. The URL pattern is
+# ``https://download.geofabrik.de/<region>/<country>.html``.
+NON_EUROPE_COUNTRIES: dict[str, str] = {
+    "morocco": "africa",
+}
+
 
 def geofabrik_url(country: str) -> str:
     """Return the Geofabrik overview URL for a country.
 
-    All Geofabrik europe/ sub-regions use the same pattern:
-    ``https://download.geofabrik.de/europe/<country>.html``.
+    Geofabrik organizes extracts into continent-scale subtrees
+    (e.g. ``/europe/``, ``/africa/``). Most of our countries
+    live under ``/europe/``; the few exceptions are listed in
+    ``NON_EUROPE_COUNTRIES``.
     """
-    return f"https://download.geofabrik.de/europe/{country}.html"
+    region = NON_EUROPE_COUNTRIES.get(country, "europe")
+    return f"https://download.geofabrik.de/{region}/{country}.html"
 
 
 def format_pbf_date(raw: str) -> str:

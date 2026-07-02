@@ -106,13 +106,13 @@ df = table.to_pandas()
 
 _PER_COUNTRY_README_TEMPLATE = """# per_country/
 
-**{n_country_folders} country folders** (one per European country),
+**{n_country_folders} country folders** (one per country),
 each containing one `<country>.parquet` file and one `README.md`.
 Total polygons across all countries: **{total_polygons:,}**.
 
-The per-country split mirrors Geofabrik's regional extracts at
-`https://download.geofabrik.de/europe/`. Use this folder when you
-want a single country without paying for the full 9 GB combined file.
+The per-country split mirrors Geofabrik's regional extracts.
+Use this folder when you want a single country without paying for
+the full 9 GB combined file.
 Each parquet has the same 13-column schema as
 [`../combined/all_europe.parquet`](../combined/all_europe.parquet).
 
@@ -189,9 +189,9 @@ exhaustive list use [`../combined/all_europe.parquet`](../combined/).
 _ROOT_README_INTRO = """# osm-polygon-selection dataset
 
 A curated set of OpenStreetMap polygons across {n_countries}
-European countries, classified by **size bin** (`small` /
-`medium` / `large`, area in [0.1, 100] km²) and tagged by continent
-(Natural Earth admin0 lookup).
+countries (mostly Europe, plus Morocco in North Africa),
+classified by **size bin** (`small` / `medium` / `large`, area in
+[0.1, 100] km²) and tagged by continent (Natural Earth admin0 lookup).
 
 **Size bins:**
 
@@ -262,7 +262,7 @@ reproject it directly without re-deriving from centroid+area.
 
 ## Geographic distribution
 
-![polygon distribution across Europe](./preview/map_preview.png)
+![polygon distribution across the dataset's countries](./preview/map_preview.png)
 
 (Each circle is one polygon from the `sample/` folder, color-coded by
 country. Circle size is proportional to `sqrt(area_km2)`.)
@@ -493,6 +493,10 @@ COUNTRY_NOTES: dict[str, str] = {
               "fits in one large polygon.",
     "montenegro": "Coast and Bay of Kotor are well-mapped; the "
                   "Dinaric interior has good hiking infrastructure.",
+    "morocco": "First non-European country in the dataset. Source "
+               "PBF is from Geofabrik's /africa/ subtree. Strong "
+               "urban mapping in coastal cities (Casablanca, Rabat, "
+               "Marrakech); rural and Saharan regions are sparser.",
     "netherlands": "Processed via 12 Geofabrik provincial sub-PBFs. "
                    "Among the best-mapped countries in the world.",
     "norway": "Processed via 6 Geofabrik regional sub-PBFs "
@@ -537,11 +541,6 @@ COUNTRY_NOTES: dict[str, str] = {
 # ---------------------------------------------------------------------------
 # Pure helpers
 # ---------------------------------------------------------------------------
-
-
-def geofabrik_url(country: str) -> str:
-    """Return the Geofabrik download page for the given country."""
-    return f"https://download.geofabrik.de/europe/{country}.html"
 
 
 def _country_source_description(country: str) -> str:

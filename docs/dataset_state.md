@@ -1,15 +1,15 @@
-# Dataset State (Europe rollout, June-July 2026)
+# Dataset State (Europe + Morocco rollout, June-July 2026)
 
 This document describes the current state of the OSM polygon dataset
-produced by this project as of 1 July 2026. It is intended to be
+produced by this project as of 2 July 2026. It is intended to be
 read alongside `README.md` and the code in `scripts/` and
 `src/osm_polygon_selection/stages/`.
 
 ## Status: all countries complete
 
-**All 47 European countries processed so far have been extracted to
-completion (`run.json` written, every OSM object in the PBF
-examined). No country is currently killed-mid-pipeline.**
+**All 50 countries (49 European + Morocco) processed so far have been
+extracted to completion (`run.json` written, every OSM object in the
+PBF examined). No country is currently killed-mid-pipeline.**
 
 The "killed-mid-pipeline" issue from earlier sessions (where the
 agent's 180-second `wait` timeout would interrupt Stage 0 mid-yield)
@@ -50,14 +50,16 @@ for the rationale.
 
 ## Coverage
 
-**49 European countries processed through Stages 0-3** as of 1 July
-2026 (matches every sub-region published under Geofabrik's
-`/europe/` index, minus the 4 special overlapping regions:
-`alps`, `britain-and-ireland`, `dach`, `great-britain`).
+**50 countries processed through Stages 0-3** as of 2 July 2026
+(49 European + Morocco in North Africa). Morocco is the first
+non-European country in the dataset; its PBF comes from Geofabrik's
+`/africa/morocco-latest.osm.pbf` instead of `/europe/`.
 
-- **All 49 countries are extracted end-to-end.** No country is
+- **All 50 countries are extracted end-to-end.** No country is
   currently killed-mid-pipeline.
-- The 3 most-recent additions (`georgia`, `ireland-and-northern-ireland`,
+- The most-recent addition is **morocco** (Geofabrik `/africa/`,
+  42,623 polygons from a 231 MB PBF in 3.4 min).
+- Earlier 2026 additions (`georgia`, `ireland-and-northern-ireland`,
   `macedonia`) were processed via the standard country-PBF path
   (single PBF, no regional sub-PBFs needed).
 - The 8 large countries that were previously killed (italy,
@@ -70,8 +72,8 @@ for the rationale.
   backfilled at build time from `row.tags` against the cached
   22,075-tag whitelist, avoiding a full re-run of Stage 2.
 
-### Total classified polygons: 7,302,782 (49 countries)
-- 5,841,700 train / 730,076 val / 731,006 test (stratified by country, seed=42)
+### Total classified polygons: 7,345,405 (50 countries)
+- 5,876,294 train / 733,635 val / 735,476 test (stratified by country, seed=42)
 
 ### Per-country breakdown
 
@@ -85,8 +87,8 @@ See `dataset/manifest.json` (machine-readable) or `dataset/README.md`
 - sweden: 397,661
 - italy: 276,991
 - spain: 240,230
-- united-kingdom: 205,002
 - netherlands: 207,459
+- united-kingdom: 205,002
 
 ### Extract status meaning
 
@@ -118,9 +120,9 @@ in under 25 minutes.
 
 ### Countries currently in-progress or pending
 
-**None.** All 46 European countries are complete. To add more
-countries (e.g., overseas territories or non-European OSM regions),
-drop their Geofabrik PBF in `raw/` and run the pipeline:
+**None.** All 50 countries (49 European + Morocco) are complete. To
+add more countries (e.g., overseas territories or other non-European
+OSM regions), drop their Geofabrik PBF in `raw/` and run the pipeline:
 ```
 scripts/run_country.sh <country>
 ```
@@ -146,9 +148,9 @@ countries in size order and skips ones already classified.
 
 ## Limitations
 
-1. **Coverage is Europe-only** as of June 2026. The pipeline
-   works on any Geofabrik regional extract but has only been
-   exercised on Europe so far.
+1. **Coverage is Europe + Morocco** as of July 2026. The pipeline
+   works on any Geofabrik regional extract; Morocco is the first
+   non-European country in the dataset.
 2. **Two filters in series** — area, then whitelist tag. Polygons
    outside [0.1, 100] km² or with no whitelist tag are not in the
    output. This is intentional but excludes some valid landuse
@@ -156,12 +158,7 @@ countries in size order and skips ones already classified.
    features).
 3. **The whitelist was built from `osm-stats` analysis** of the
    same OSM tag taxonomy. See `docs/whitelist_decisions.md`.
-4. **46 countries have been processed**. Three (norway, germany,
-   france) had their extract killed before yielding any polygons due
-   to osmium's multipolygon assembly phase taking 30+ minutes for one
-   or two very complex relations. Five additional countries (italy,
-   netherlands, poland, spain, united-kingdom) had their extract
-   killed mid-yield and are present with partial coverage. The
-   missing tails can be recovered by re-running extract with the
-   existing WAL preserved or by running the extract in a non-agent
-   process that runs to completion.
+4. **50 countries have been processed**. The historical "killed-mid-pipeline"
+   issue that affected norway, germany, france, italy, netherlands,
+   poland, spain, and united-kingdom has been resolved by switching
+   large countries to Geofabrik regional sub-PBFs.
