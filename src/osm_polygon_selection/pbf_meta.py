@@ -75,6 +75,7 @@ NON_EUROPE_COUNTRIES: dict[str, str] = {
     "canary-islands": "africa",
     "sao-tome-and-principe": "africa",
     "saint-helena-ascension-and-tristan-da-cunha": "africa",
+    "mayotte": "africa",
 }
 
 

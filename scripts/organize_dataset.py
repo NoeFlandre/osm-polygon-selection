@@ -539,6 +539,9 @@ COUNTRY_NOTES: dict[str, str] = {
     "canary-islands": "Spanish archipelago off the coast of Morocco; "
                       "classified under Geofabrik /africa/. PBF "
                       "(~57 MB).",
+    "mayotte": "French overseas department in the Indian Ocean "
+               "(Comoros archipelago). Geofabrik /africa/ PBF "
+               "(~10 MB).",
     "gabon": "Central African country on the equator; mostly "
              "rainforest. Geofabrik /africa/ PBF (~24 MB).",
     "congo-brazzaville": "Republic of the Congo (Brazzaville). "

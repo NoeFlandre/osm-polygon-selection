@@ -49,6 +49,12 @@ class TestGeofabrikUrl:
             "https://download.geofabrik.de/africa/algeria.html"
         )
 
+    def test_mayotte_uses_africa_region(self) -> None:
+        """Mayotte (French overseas territory, Indian Ocean) is in /africa/."""
+        assert geofabrik_url("mayotte") == (
+            "https://download.geofabrik.de/africa/mayotte.html"
+        )
+
 
 class TestFormatPbfDate:
     def test_iso_date(self) -> None:

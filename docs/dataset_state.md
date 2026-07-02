@@ -7,9 +7,9 @@ read alongside `README.md` and the code in `scripts/` and
 
 ## Status: Africa rollout in progress
 
-**76 countries processed so far (49 European + 27 African).** All
-27 African countries are extracted end-to-end (`run.json` written,
-every OSM object examined). The next batch of 27 larger African
+**77 countries processed so far (49 European + 28 African).** All
+28 African countries are extracted end-to-end (`run.json` written,
+every OSM object examined). The next batch of 26 larger African
 countries has PBFs downloaded but extract is still running.
 
 The "killed-mid-pipeline" issue from earlier sessions (where the
@@ -51,8 +51,8 @@ for the rationale.
 
 ## Coverage
 
-**76 countries processed through Stages 0-3** as of 2 July 2026
-(49 European + 27 African). The 27 African countries come from
+**77 countries processed through Stages 0-3** as of 2 July 2026
+(49 European + 28 African). The 28 African countries come from
 Geofabrik's `/africa/` subtree. Larger PBFs (Nigeria 678 MB,
 Tanzania 671 MB, South Africa 395 MB, DRC 393 MB, Uganda 353 MB,
 Kenya 331 MB, Mozambique 243 MB, Zambia 240 MB, Cameroon 213 MB,
@@ -63,12 +63,14 @@ Senegal+Gambia 100 MB, CAR 95 MB, Burkina Faso 81 MB, Angola 81 MB,
 Botswana 84 MB, Ivory Coast 86 MB) are downloaded and stage 0 is
 in progress.
 
-- **All 27 African countries currently in the dataset are extracted
+- **All 28 African countries currently in the dataset are extracted
   end-to-end.**
+- The most recent addition is **mayotte** (10 MB, French Indian
+  Ocean territory, 606 polygons in 15.8 s stage 0).
 - Island nations and small territories (Sao Tome and Principe,
   Comores, Seychelles, Saint Helena Ascension and Tristan da Cunha,
-  Equatorial Guinea, Djibouti, Mauritius, Guinea-Bissau, Cape Verde,
-  Canary Islands) all completed in <2 min each.
+  Mayotte, Equatorial Guinea, Djibouti, Mauritius, Guinea-Bissau,
+  Cape Verde, Canary Islands) all completed in <2 min each.
 - Earlier 2026 additions (`georgia`, `ireland-and-northern-ireland`,
   `macedonia`) were processed via the standard country-PBF path
   (single PBF, no regional sub-PBFs needed).
@@ -82,8 +84,8 @@ in progress.
   backfilled at build time from `row.tags` against the cached
   22,075-tag whitelist, avoiding a full re-run of Stage 2.
 
-### Total classified polygons: 7,484,306 (76 countries)
-- 5,987,813 train / 746,913 val / 749,580 test (stratified by country, seed=42)
+### Total classified polygons: 7,484,912 (77 countries)
+- 5,988,419 train / 747,272 val / 749,221 test (stratified by country, seed=42)
 
 ### Per-country breakdown
 
@@ -168,14 +170,14 @@ countries in size order and skips ones already classified.
 
 ## Limitations
 
-1. **Coverage is Europe + 27 African countries** as of 2 July 2026.
-   The pipeline works on any Geofabrik regional extract; 27 of 55
-   African countries (Morocco, Tunisia, Algeria, Libya, Egypt,
+1. **Coverage is Europe + 28 African countries** as of 2 July 2026.
+   The pipeline works on any Geofabrik regional extract; 28 of 55
+   African countries (Morocco, Tunisia, Algeria, Libya, Mayotte,
    Senegal+Gambia, Guinea-Bissau, Guinea, Sierra Leone, Liberia,
    Ivory Coast, Ghana, Togo, Benin, Burkina Faso, Mali, Mauritania,
    Niger, Cape Verde, Gabon, Congo-Brazzaville, Burundi, Namibia,
    Rwanda, Swaziland, Eritrea, Canary Islands) are currently in
-   the dataset. The remaining 27 larger African countries (Nigeria,
+   the dataset. The remaining 26 larger African countries (Nigeria,
    Tanzania, South Africa, DRC, Uganda, Kenya, Mozambique, Zambia,
    Cameroon, Sudan, Zimbabwe, Egypt, Mali, Somalia, Malawi, Ethiopia,
    South Sudan, Chad, Lesotho, Angola, Botswana, etc.) are in
