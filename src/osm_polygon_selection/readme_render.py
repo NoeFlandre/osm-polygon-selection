@@ -115,6 +115,41 @@ COUNTRY_NOTES: dict[str, str] = {
         "the Namib fringe), Kissama (Quiçama) National Park near "
         "Luanda, and the Calandula / Kalandula waterfalls."
     ),
+    "guinea": (
+        "West African country on the Atlantic (former French "
+        "colony) with the Fouta Djallon highlands forming the "
+        "headwaters of the Niger, Gambia, and Senegal Rivers. "
+        "Capital Conakry and the Fouta Djallon region have good "
+        "OSM coverage; the forested southeast (the "
+        "Guinea Highlands / Nimba mountains) is sparsely mapped. "
+        "Geofabrik /africa/ PBF (~111 MB). Notable protected "
+        "areas include the Mount Nimba Strict Nature Reserve (a "
+        "transboundary UNESCO site shared with Liberia and Côte "
+        "d'Ivoire)."
+    ),
+    "ghana": (
+        "West African country on the Gulf of Guinea (former "
+        "British colony) with the political capital Accra on "
+        "the Atlantic coast and the second city Kumasi in the "
+        "central Ashanti region. The Volta Basin (Lake Volta / "
+        "Volta River) dominates the eastern half of the country. "
+        "OSM coverage is excellent around Accra, Kumasi, and "
+        "the cocoa belt; the northern savanna is sparser. "
+        "Geofabrik /africa/ PBF (~107 MB). Notable protected "
+        "areas include Kakum National Park (the canopy "
+        "walkway) and Mole National Park in the north."
+    ),
+    "senegal-and-gambia": (
+        "Geofabrik combined file covering Senegal (West African "
+        "country on the Atlantic, former French colony, capital "
+        "Dakar) plus The Gambia (a narrow enclave inside Senegal "
+        "along the Gambia River, capital Banjul). Dakar has "
+        "excellent OSM coverage; the Sine-Saloum Delta and the "
+        "Niokolo-Koba National Park (a UNESCO World Heritage "
+        "site in eastern Senegal) are well-mapped. The Gambia's "
+        "riverbanks are similarly well-traced. Geofabrik /africa/ "
+        "combined PBF (~100 MB)."
+    ),
 }
 
 

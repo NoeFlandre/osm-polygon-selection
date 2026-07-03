@@ -280,6 +280,64 @@ class TestBuildCountryReadme:
             f"angola country README missing curated note; got:\n{out}"
         )
 
+    def test_uses_guinea_country_note(self) -> None:
+        """guinea (West African country on the Atlantic, former
+        French colony) should have a curated COUNTRY_NOTES entry
+        mentioning Conakry or Fouta Djallon or a distinctive
+        Guinean geographic feature, NOT the generic fallback.
+        """
+        out = build_country_readme(
+            "guinea", 12000, "clean", "2026-07-03"
+        )
+        text = out.lower()
+        assert (
+            "conakry" in text
+            or "fouta" in text
+            or "djallon" in text
+            or "niger" in text
+        ), (
+            f"guinea country README missing curated note; got:\n{out}"
+        )
+
+    def test_uses_ghana_country_note(self) -> None:
+        """ghana (West African country on the Gulf of Guinea,
+        former British colony) should have a curated
+        COUNTRY_NOTES entry mentioning Accra or a distinctive
+        Ghanaian geographic feature, NOT the generic fallback.
+        """
+        out = build_country_readme(
+            "ghana", 15000, "clean", "2026-07-03"
+        )
+        text = out.lower()
+        assert (
+            "accra" in text
+            or "kumasi" in text
+            or "volta" in text
+            or "ghana" in text
+        ), (
+            f"ghana country README missing curated note; got:\n{out}"
+        )
+
+    def test_uses_senegal_and_gambia_country_note(self) -> None:
+        """senegal-and-gambia (Geofabrik combined file covering
+        both Senegal and The Gambia) should have a curated
+        COUNTRY_NOTES entry mentioning Dakar or Banjul,
+        NOT the generic fallback.
+        """
+        out = build_country_readme(
+            "senegal-and-gambia", 15000, "clean", "2026-07-03"
+        )
+        text = out.lower()
+        assert (
+            "dakar" in text
+            or "banjul" in text
+            or "senegal" in text
+            or "gambia" in text
+        ), (
+            f"senegal-and-gambia country README missing curated "
+            f"note; got:\n{out}"
+        )
+
 
 class TestWriteMetadataYaml:
     def test_writes_yaml_with_required_fields(self, tmp_path: Path) -> None:
