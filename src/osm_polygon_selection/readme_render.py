@@ -456,19 +456,39 @@ reproject it directly without re-deriving from centroid+area.
   (`docs/whitelist_decisions.md` in the project repo, or read the
   full rationale in the
   [blog post](https://noeflandre.com/posts/osm-data-analysis)).
-  The **TF-IDF pipeline** clusters tags by lexical similarity
-  (~150 superclusters per base key, dominated by canonical
-  high-volume forms), and the **embeddings pipeline** clusters
-  tags by semantic similarity (catches non-lexical patterns like
-  `landuse=farmyard` ≈ `landuse=meadow`). A base key survives if
-  `keep=yes` in **either** pipeline; that union yields 236 base
-  keys, from which two tiers of `key=value` tags are extracted
-  (Tier A = real clusters, Tier B = HDBSCAN noise rescued at
-  `count_all >= 10,000`). The resulting whitelist filters
-  polygons by landuse-style tags (`natural`, `landuse`,
-  `leisure`, `amenity`, etc.) so the dataset focuses on
-  physical land-cover / land-use features rather than buildings,
-  addresses, or points of interest.
+
+  **TF-IDF pipeline** (`data/reference/osm_stats/tfidf/cluster_memberships.csv`,
+  225,684 rows, 1,829 base keys, 8,833 HDBSCAN clusters):
+  tokenizes each `key=value` tag, builds a sparse TF-IDF
+  vector, then HDBSCAN over cosine distance. Catches canonical
+  high-volume forms (`landuse=residential`, `natural=water`)
+  but cannot connect tags with no shared surface tokens.
+
+  **Embeddings pipeline** (`data/reference/osm_stats/embeddings/cluster_memberships_embeddings.csv`,
+  225,684 rows, 1,829 base keys, 4,955 HDBSCAN clusters):
+  embeds each tag with `all-MiniLM-L6-v2`, then HDBSCAN over
+  cosine distance. Catches semantic synonyms
+  (`landuse=farmyard` ≈ `landuse=meadow` ≈ `landuse=farmland`)
+  that TF-IDF misses.
+
+  **Manual labeling per base key** (TF-IDF: 157 yes / 54
+  uncertain / 216 no across 427 base keys; embeddings: 169 yes
+  / 57 uncertain / 207 no across 433 base keys). The union
+  (`yes` in **either** pipeline) yields **236 base keys**.
+
+  **Two-tier tag extraction per kept base key:**
+  Tier A = all tags from real HDBSCAN clusters
+  (`cluster_id != -1`; 16,685 TF-IDF + 18,382 embeddings
+  pre-dedup); Tier B = HDBSCAN noise points
+  (`cluster_id == -1`) rescued at `count_all >= 10,000`
+  (1,171 TF-IDF + 1,023 embeddings). After Python `set`
+  dedup, the union contains **22,075 unique `key=value`
+  strings**.
+
+  Stage 2 of the pipeline filters polygons by intersecting
+  their `tags` list against this set, recording the first
+  hit as `matched_tag`. Per-country retention runs **~93 %
+  to ~99.9 %**.
 
 ## Geographic distribution
 
@@ -506,33 +526,48 @@ Each polygon in this dataset has passed three filters:
    Polygons smaller than 0.1 km² or larger than 100 km² are dropped.
 2. **Whitelist filter (Stage 2)**: at least one OSM tag in the
    **22,075-tag whitelist**, the **union of two osm-stats
-   pipelines**:
+   pipelines** that complement each other:
    - **TF-IDF pipeline** (`tfidf/cluster_memberships.csv`):
-     clusters tags by lexical similarity (key/value string
-     distance). Captures canonical high-volume forms
+     tokenize each `key=value` into word pieces, build a sparse
+     TF-IDF vector over the corpus, HDBSCAN over cosine
+     distance. **Strength:** canonical high-volume forms
      (`landuse=residential`, `natural=water`).
-   - **Embeddings pipeline** (`embeddings/cluster_memberships_embeddings.csv`):
-     clusters tags by semantic similarity of learned embeddings.
-     Captures non-lexical patterns that TF-IDF misses
+     **Weakness:** cannot connect tags that share no surface
+     tokens (`landuse=farmyard`, `landuse=meadow`,
+     `landuse=farmland` end up in different clusters).
+   - **Embeddings pipeline**
+     (`embeddings/cluster_memberships_embeddings.csv`):
+     embed each tag with `all-MiniLM-L6-v2` (384-dim,
+     L2-normalized), HDBSCAN over cosine distance.
+     **Strength:** semantic synonyms
      (`landuse=farmyard` ≈ `landuse=meadow` ≈
-     `landuse=farmland`).
+     `landuse=farmland` cluster together).
+     **Weakness:** rarer tags drift toward the nearest cluster
+     centroid (handled by manual labels downstream).
 
-   A base key (e.g. `landuse`, `natural`, `leisure`, `amenity`)
-   survives if `keep=yes` in **either** pipeline — that yields
-   **236 base keys**. From each kept base key we extract two
-   tiers of `key=value` tags:
+   **Manual labels per base key** (TF-IDF: 157 yes / 54
+   uncertain / 216 no; embeddings: 169 yes / 57 uncertain /
+   207 no). A base key (e.g. `landuse`, `natural`, `leisure`,
+   `amenity`) survives if `keep=yes` in **either** pipeline
+   — yielding **236 base keys**.
+
+   **Two-tier tag inclusion per kept base key:**
    - **Tier A (real clusters):** every tag from a non-noise
-     HDBSCAN cluster (`cluster_id != -1`).
+     HDBSCAN cluster (`cluster_id != -1`). 16,685 tags from
+     TF-IDF + 18,382 from embeddings (pre-dedup).
    - **Tier B (noise rescue):** HDBSCAN noise points
-     (`cluster_id = -1`) with `count_all >= 10,000` (e.g.
-     `landuse=forest` at ~5.9 M occurrences, `natural=wood` at
-     ~12.4 M occurrences — isolated but legitimately
-     landuse-relevant).
+     (`cluster_id == -1`) with `count_all >= 10,000` —
+     high-volume isolated tags that escaped clustering (e.g.
+     `landuse=forest` at ~5.9 M occurrences, `natural=wood`
+     at ~12.4 M occurrences). 1,171 tags from TF-IDF + 1,023
+     from embeddings.
 
-   After dedup the union contains **22,075 unique `key=value`
-   strings**, loaded as a Python `set[str]` for O(1) intersection.
-   The first whitelist hit on a polygon is recorded as
-   `matched_tag`.
+   After Python `set` dedup, the union contains **22,075
+   unique `key=value` strings**, loaded as a Python `set[str]`
+   for O(1) intersection. Stage 2 keeps only polygons whose
+   `tags` list intersects this set, recording the first
+   hit as `matched_tag`. Per-country retention runs
+   **~93 % to ~99.9 %**.
 3. **Classify (Stage 3)**: continent assigned via Natural Earth
    admin0 shapefile, size_bin assigned by area.
 
