@@ -15,12 +15,12 @@ For per-country timings, see `docs/PERFORMANCE.md`.
 
 | Metric                    | Value           |
 |---------------------------|----------------:|
-| African countries done    |       **44 / 55** |
-| Total polygons (Africa)   |       558,294   |
-| Total countries (dataset) |       **91**    |
-| Total polygons (dataset)  |     7,773,727   |
+| African countries done    |       **45 / 55** |
+| Total polygons (Africa)   |       598,686   |
+| Total countries (dataset) |       **92**    |
+| Total polygons (dataset)  |     7,814,119   |
 
-The 44 done = 3 prior (morocco, tunisia, algeria) + 24 from
+The 45 done = 3 prior (morocco, tunisia, algeria) + 24 from
 batches 1+2 + 1 most recent (mayotte) + 1 most recent (botswana)
 + 1 most recent (central-african-republic)
 + 1 most recent (ivory-coast) + 1 most recent (burkina-faso)
@@ -28,7 +28,8 @@ batches 1+2 + 1 most recent (mayotte) + 1 most recent (botswana)
 + 1 most recent (ghana) + 1 most recent (senegal-and-gambia)
 + 1 most recent (lesotho) + 1 most recent (chad)
 + 1 most recent (south-sudan) + 1 most recent (ethiopia)
-+ 1 most recent (malawi) + 1 most recent (somalia) [pushed].
++ 1 most recent (malawi) + 1 most recent (somalia)
++ 1 most recent (mali).
 
 ---
 
@@ -52,7 +53,7 @@ batches 1+2 + 1 most recent (mayotte) + 1 most recent (botswana)
 - togo (59 MB, 3,408 polygons)
 - benin (45.5 MB, 4,614 polygons)
 - burkina-faso (81 MB PBF, 8,835 polygons) — landlocked West African country (formerly Upper Volta); capital Ouagadougou, second city Bobo-Dioulasso
-- mali — IN QUEUE
+- mali (164 MB PBF, 40,392 polygons) — large landlocked West African country (formerly French Sudan); capital Bamako on the Niger River, historic cities Timbuktu / Djenné / Gao
 - mauritania (29 MB, 9,040 polygons)
 - niger (71 MB, 14,606 polygons)
 - cape-verde (11.1 MB, 2,417 polygons)
@@ -109,18 +110,17 @@ Sorted by PBF size (smallest first to make early progress visible):
 
 | # | Country                       | PBF size | Status            |
 |---|-------------------------------|---------:|-------------------|
-| 1 | mali                         |  164 MB  | PBFs downloaded   |
-| 2 | egypt                        |  169 MB  | PBFs downloaded   |
-| 3 | zimbabwe                     |  170 MB  | PBFs downloaded   |
-| 4 | sudan                        |  193 MB  | PBFs downloaded   |
-| 5 | cameroon                     |  213 MB  | PBFs downloaded   |
-| 6 | zambia                       |  240 MB  | PBFs downloaded   |
-| 7 | mozambique                   |  243 MB  | PBFs downloaded   |
-| 8 | kenya                        |  331 MB  | PBFs downloaded   |
-| 9 | uganda                       |  353 MB  | PBFs downloaded   |
-| 10 | south-africa                 |  396 MB  | PBFs downloaded   |
-| 11 | congo-democratic-republic    |  393 MB  | PBFs downloaded   |
-| 12 | nigeria                      |  678 MB  | PBFs downloaded   |
+| 1 | egypt                        |  169 MB  | PBFs downloaded   |
+| 2 | zimbabwe                     |  170 MB  | PBFs downloaded   |
+| 3 | sudan                        |  193 MB  | PBFs downloaded   |
+| 4 | cameroon                     |  213 MB  | PBFs downloaded   |
+| 5 | zambia                       |  240 MB  | PBFs downloaded   |
+| 6 | mozambique                   |  243 MB  | PBFs downloaded   |
+| 7 | kenya                        |  331 MB  | PBFs downloaded   |
+| 8 | uganda                       |  353 MB  | PBFs downloaded   |
+| 9 | south-africa                 |  396 MB  | PBFs downloaded   |
+| 10 | congo-democratic-republic    |  393 MB  | PBFs downloaded   |
+| 11 | nigeria                      |  678 MB  | PBFs downloaded   |
 
 **Small countries (PBF < 200 MB) recommended for next session**:
 mali, egypt, zimbabwe, sudan.
