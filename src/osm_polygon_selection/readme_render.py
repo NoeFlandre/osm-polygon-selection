@@ -174,6 +174,85 @@ COUNTRY_NOTES: dict[str, str] = {
         "Lake Chad (a UNESCO Biosphere Reserve) is the "
         "country's most prominent geographic feature."
     ),
+    "south-sudan": (
+        "East African landlocked country, gained independence "
+        "from Sudan in 2011 and home to the vast Sudd wetland "
+        "(one of the world's largest tropical wetlands). Capital "
+        "Juba is the only large urban mapping centre; the rest "
+        "of the country is extremely sparsely mapped due to "
+        "ongoing conflict and limited road access. Geofabrik "
+        "/africa/ PBF (~131 MB). The White Nile traverses the "
+        "country south to north through the Sudd."
+    ),
+    "ethiopia": (
+        "Large East African country (formerly Abyssinia, never "
+        "colonized) dominated by the Ethiopian Highlands, a "
+        "massive plateau rising above 1,500 m. Capital Addis "
+        "Ababa has good OSM coverage; the highlands and the "
+        "Rift Valley are progressively mapped. Geofabrik /africa/ "
+        "PBF (~132 MB). Notable features include the Simien "
+        "Mountains and Bale Mountains National Parks (both "
+        "UNESCO sites), the Danakil Depression (one of the "
+        "hottest places on Earth), and the rock-hewn churches "
+        "of Lalibela and the ancient obelisks of Aksum."
+    ),
+    "malawi": (
+        "Landlocked Southeast African country dominated by "
+        "Lake Malawi (Lake Nyasa), the ninth-largest lake in "
+        "the world and home to more species of fish than any "
+        "other. Capital Lilongwe has decent OSM coverage; the "
+        "shoreline of Lake Malawi and the southern Shire "
+        "Highlands are progressively mapped. Geofabrik /africa/ "
+        "PBF (~147 MB). Notable protected areas include Lake "
+        "Malawi National Park (a UNESCO World Heritage site) "
+        "and Nyika National Park on the Zambia border."
+    ),
+    "somalia": (
+        "Horn of Africa country on the Indian Ocean, with the "
+        "self-declared republic of Somaliland in the north and "
+        "Puntland in the northeast. Capital Mogadishu has "
+        "limited OSM coverage due to ongoing conflict; "
+        "Somaliland (Hargeisa, Berbera port) has somewhat "
+        "better mapping. Geofabrik /africa/ PBF (~156 MB). "
+        "Notable features include the Horn of Africa's northern "
+        "coastline, the Shabelle and Jubba river valleys in "
+        "the south, and the Bajuni / Banaadir coastal islands."
+    ),
+    "mali": (
+        "Large landlocked West African country (formerly "
+        "French Sudan), with most of its territory in the "
+        "Saharan and Sahelian zones. Capital Bamako on the "
+        "Niger River has good OSM coverage; the historic "
+        "cities of Timbuktu, Djenné, and Gao are progressively "
+        "mapped. Geofabrik /africa/ PBF (~164 MB). Notable "
+        "features include the Bandiagara Escarpment (home to "
+        "the Dogon people and a UNESCO World Heritage site), "
+        "the Niger River Inner Delta, and the historic trans-"
+        "Saharan trade route cities."
+    ),
+    "zimbabwe": (
+        "Southern African landlocked country (formerly "
+        "Rhodesia) with the high plateau of the Zimbabwe "
+        "Craton. Capital Harare has good OSM coverage; "
+        "Bulawayo and the Victoria Falls area are progressively "
+        "mapped. Geofabrik /africa/ PBF (~170 MB). Notable "
+        "features include Victoria Falls / Mosi-oa-Tunya (a "
+        "transboundary UNESCO site shared with Zambia), the "
+        "Great Zimbabwe ruins, Hwange National Park (one of "
+        "Africa's largest elephant sanctuaries), and Lake "
+        "Kariba (one of the world's largest artificial lakes)."
+    ),
+    "egypt": (
+        "Large North African country dominated by the Nile "
+        "Valley and the Sahara Desert, with a small but dense "
+        "population along the river. Capital Cairo is the "
+        "largest city in the Arab world with very good OSM "
+        "coverage; Alexandria and the Nile Delta are similarly "
+        "well-mapped. Geofabrik /africa/ PBF (~169 MB). "
+        "Notable features include the pyramids of Giza, the "
+        "ancient sites of Luxor and Karnak, the Sinai "
+        "Peninsula, and the Red Sea coast with its coral reefs."
+    ),
 }
 
 

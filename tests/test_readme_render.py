@@ -375,6 +375,132 @@ class TestBuildCountryReadme:
             f"chad country README missing curated note; got:\n{out}"
         )
 
+    def test_uses_south_sudan_country_note(self) -> None:
+        """south-sudan (East African country, gained independence
+        from Sudan in 2011) should have a curated COUNTRY_NOTES
+        entry mentioning Juba or a distinctive South Sudanese feature.
+        """
+        out = build_country_readme(
+            "south-sudan", 4000, "clean", "2026-07-03"
+        )
+        text = out.lower()
+        assert (
+            "juba" in text
+            or "sudan" in text
+            or "nile" in text
+            or "sudd" in text
+        ), (
+            f"south-sudan country README missing curated note; got:\n{out}"
+        )
+
+    def test_uses_ethiopia_country_note(self) -> None:
+        """ethiopia (large East African country, formerly Abyssinia,
+        never colonized) should have a curated COUNTRY_NOTES entry
+        mentioning Addis Ababa or the Ethiopian Highlands.
+        """
+        out = build_country_readme(
+            "ethiopia", 15000, "clean", "2026-07-03"
+        )
+        text = out.lower()
+        assert (
+            "addis ababa" in text
+            or "highlands" in text
+            or "abyssinia" in text
+            or "aksum" in text
+        ), (
+            f"ethiopia country README missing curated note; got:\n{out}"
+        )
+
+    def test_uses_malawi_country_note(self) -> None:
+        """malawi (landlocked Southeast African country dominated by
+        Lake Malawi) should have a curated COUNTRY_NOTES entry
+        mentioning Lilongwe or Lake Malawi.
+        """
+        out = build_country_readme(
+            "malawi", 6000, "clean", "2026-07-03"
+        )
+        text = out.lower()
+        assert (
+            "lilongwe" in text
+            or "malawi" in text
+            or "lake" in text
+            or "nyasa" in text
+        ), (
+            f"malawi country README missing curated note; got:\n{out}"
+        )
+
+    def test_uses_somalia_country_note(self) -> None:
+        """somalia (Horn of Africa country on the Indian Ocean)
+        should have a curated COUNTRY_NOTES entry mentioning
+        Mogadishu or a distinctive Somali geographic feature.
+        """
+        out = build_country_readme(
+            "somalia", 4000, "clean", "2026-07-03"
+        )
+        text = out.lower()
+        assert (
+            "mogadishu" in text
+            or "somalia" in text
+            or "horn" in text
+            or "somaliland" in text
+        ), (
+            f"somalia country README missing curated note; got:\n{out}"
+        )
+
+    def test_uses_mali_country_note(self) -> None:
+        """mali (large landlocked West African country, formerly
+        French Sudan) should have a curated COUNTRY_NOTES entry
+        mentioning Bamako or Timbuktu or the Niger River.
+        """
+        out = build_country_readme(
+            "mali", 8000, "clean", "2026-07-03"
+        )
+        text = out.lower()
+        assert (
+            "bamako" in text
+            or "timbuktu" in text
+            or "niger" in text
+            or "sahel" in text
+        ), (
+            f"mali country README missing curated note; got:\n{out}"
+        )
+
+    def test_uses_zimbabwe_country_note(self) -> None:
+        """zimbabwe (Southern African country, formerly Rhodesia)
+        should have a curated COUNTRY_NOTES entry mentioning
+        Harare or Victoria Falls.
+        """
+        out = build_country_readme(
+            "zimbabwe", 12000, "clean", "2026-07-03"
+        )
+        text = out.lower()
+        assert (
+            "harare" in text
+            or "zimbabwe" in text
+            or "victoria falls" in text
+            or "kariba" in text
+        ), (
+            f"zimbabwe country README missing curated note; got:\n{out}"
+        )
+
+    def test_uses_egypt_country_note(self) -> None:
+        """egypt (large North African country dominated by the
+        Nile Valley and Sahara) should have a curated
+        COUNTRY_NOTES entry mentioning Cairo or the Nile.
+        """
+        out = build_country_readme(
+            "egypt", 30000, "clean", "2026-07-03"
+        )
+        text = out.lower()
+        assert (
+            "cairo" in text
+            or "nile" in text
+            or "egypt" in text
+            or "sinai" in text
+        ), (
+            f"egypt country README missing curated note; got:\n{out}"
+        )
+
 
 class TestWriteMetadataYaml:
     def test_writes_yaml_with_required_fields(self, tmp_path: Path) -> None:
