@@ -15,12 +15,12 @@ For per-country timings, see `docs/PERFORMANCE.md`.
 
 | Metric                    | Value           |
 |---------------------------|----------------:|
-| African countries done    |       **49 / 55** |
-| Total polygons (Africa)   |       740,686   |
-| Total countries (dataset) |       **96**    |
-| Total polygons (dataset)  |     7,956,119   |
+| African countries done    |       **50 / 55** |
+| Total polygons (Africa)   |       756,370   |
+| Total countries (dataset) |       **97**    |
+| Total polygons (dataset)  |     7,971,803   |
 
-The 49 done = 3 prior (morocco, tunisia, algeria) + 24 from
+The 50 done = 3 prior (morocco, tunisia, algeria) + 24 from
 batches 1+2 + 1 most recent (mayotte) + 1 most recent (botswana)
 + 1 most recent (central-african-republic)
 + 1 most recent (ivory-coast) + 1 most recent (burkina-faso)
@@ -31,7 +31,7 @@ batches 1+2 + 1 most recent (mayotte) + 1 most recent (botswana)
 + 1 most recent (malawi) + 1 most recent (somalia)
 + 1 most recent (mali) + 1 most recent (egypt)
 + 1 most recent (zimbabwe) + 1 most recent (sudan)
-+ 1 most recent (cameroon).
++ 1 most recent (cameroon) + 1 most recent (zambia).
 
 ---
 
@@ -95,7 +95,7 @@ batches 1+2 + 1 most recent (mayotte) + 1 most recent (botswana)
 - namibia (51 MB, 9,316 polygons)
 - south-africa — IN QUEUE
 - swaziland (29.1 MB, 4,113 polygons)
-- zambia — IN QUEUE
+- zambia (240 MB PBF, 15,684 polygons) — landlocked Southern African country (formerly Northern Rhodesia); capital Lusaka, Victoria Falls / Mosi-oa-Tunya (UNESCO)
 - zimbabwe (170 MB PBF, 7,545 polygons) — Southern African landlocked country (formerly Rhodesia); capital Harare, Victoria Falls / Mosi-oa-Tunya (UNESCO)
 
 **Islands (4)**:
@@ -106,19 +106,18 @@ batches 1+2 + 1 most recent (mayotte) + 1 most recent (botswana)
 
 ---
 
-## Queue (7 African countries pending)
+## Queue (6 African countries pending)
 
 Sorted by PBF size (smallest first to make early progress visible):
 
 | # | Country                       | PBF size | Status            |
 |---|-------------------------------|---------:|-------------------|
-| 1 | zambia                       |  240 MB  | PBFs downloaded   |
-| 2 | mozambique                   |  243 MB  | PBFs downloaded   |
-| 3 | kenya                        |  331 MB  | PBFs downloaded   |
-| 4 | uganda                       |  353 MB  | PBFs downloaded   |
-| 5 | south-africa                 |  396 MB  | PBFs downloaded   |
-| 6 | congo-democratic-republic    |  393 MB  | PBFs downloaded   |
-| 7 | nigeria                      |  678 MB  | PBFs downloaded   |
+| 1 | mozambique                   |  243 MB  | PBFs downloaded   |
+| 2 | kenya                        |  331 MB  | PBFs downloaded   |
+| 3 | uganda                       |  353 MB  | PBFs downloaded   |
+| 4 | south-africa                 |  396 MB  | PBFs downloaded   |
+| 5 | congo-democratic-republic    |  393 MB  | PBFs downloaded   |
+| 6 | nigeria                      |  678 MB  | PBFs downloaded   |
 
 **Small countries (PBF < 200 MB) recommended for next session**:
 mali, egypt, zimbabwe, sudan.
