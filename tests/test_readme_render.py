@@ -338,6 +338,43 @@ class TestBuildCountryReadme:
             f"note; got:\n{out}"
         )
 
+    def test_uses_lesotho_country_note(self) -> None:
+        """lesotho (small landlocked Southern African country,
+        entirely surrounded by South Africa, also known as the
+        'Kingdom in the Sky') should have a curated COUNTRY_NOTES
+        entry mentioning Maseru or a distinctive Lesotho feature.
+        """
+        out = build_country_readme(
+            "lesotho", 4000, "clean", "2026-07-03"
+        )
+        text = out.lower()
+        assert (
+            "maseru" in text
+            or "lesotho" in text
+            or "drakensberg" in text
+            or "maluti" in text
+        ), (
+            f"lesotho country README missing curated note; got:\n{out}"
+        )
+
+    def test_uses_chad_country_note(self) -> None:
+        """chad (large landlocked Central African country, formerly
+        French Equatorial Africa) should have a curated
+        COUNTRY_NOTES entry mentioning N'Djamena or Lake Chad.
+        """
+        out = build_country_readme(
+            "chad", 6000, "clean", "2026-07-03"
+        )
+        text = out.lower()
+        assert (
+            "ndjamena" in text
+            or "n'djamena" in text
+            or "tibesti" in text
+            or "saharan" in text
+        ), (
+            f"chad country README missing curated note; got:\n{out}"
+        )
+
 
 class TestWriteMetadataYaml:
     def test_writes_yaml_with_required_fields(self, tmp_path: Path) -> None:

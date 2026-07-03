@@ -150,6 +150,30 @@ COUNTRY_NOTES: dict[str, str] = {
         "riverbanks are similarly well-traced. Geofabrik /africa/ "
         "combined PBF (~100 MB)."
     ),
+    "lesotho": (
+        "Small landlocked Southern African country, entirely "
+        "surrounded by South Africa and known as the 'Kingdom "
+        "in the Sky' for its high-altitude terrain. The Drakensberg "
+        "and Maluti mountains cover most of the country, with "
+        "the lowest point still above 1,000 m. Capital Maseru "
+        "has reasonable OSM coverage; the highlands are sparser. "
+        "Geofabrik /africa/ PBF (~120 MB). Notable protected "
+        "areas include Sehlabathebe National Park (a UNESCO "
+        "World Heritage site) and the Maloti-Drakensberg "
+        "Transfrontier Park (shared with South Africa)."
+    ),
+    "chad": (
+        "Large landlocked Central African country (formerly "
+        "French Equatorial Africa), with three climatic zones "
+        "stretching from the Saharan north (Tibesti Mountains) "
+        "through the Sahelian belt to the Sudano-Guinean south. "
+        "Capital N'Djamena (on the border with Cameroon) has "
+        "decent OSM coverage; the northern Sahara and the "
+        "eastern Ennedi Plateau are extremely sparsely mapped. "
+        "Geofabrik /africa/ PBF (~128 MB). The shrinking of "
+        "Lake Chad (a UNESCO Biosphere Reserve) is the "
+        "country's most prominent geographic feature."
+    ),
 }
 
 
