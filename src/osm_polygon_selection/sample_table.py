@@ -95,10 +95,19 @@ def compute_global_size_bin_distribution(
     ``SIZE_BIN_ORDER``. ``pct`` is over the sum of all bins.
     """
     combined = dataset_root / "combined" / "all_europe.parquet"
+    flat = dataset_root / "all_europe.parquet"
     counts: Counter[str] = Counter()
     if combined.is_file():
         try:
             t = pq.read_table(combined, columns=["size_bin"])
+            counts.update(_aggregate_size_bin_column(t["size_bin"]))
+        except Exception:
+            counts = Counter()
+    if not counts and flat.is_file():
+        # Flat layout produced by build_dataset.py before
+        # organize_dataset.py has moved the combined parquet.
+        try:
+            t = pq.read_table(flat, columns=["size_bin"])
             counts.update(_aggregate_size_bin_column(t["size_bin"]))
         except Exception:
             counts = Counter()
@@ -109,6 +118,16 @@ def compute_global_size_bin_distribution(
             for country_dir in sorted(per_country_dir.iterdir()):
                 pq_path = country_dir / f"{country_dir.name}.parquet"
                 if not pq_path.is_file():
+                    continue
+                try:
+                    t = pq.read_table(pq_path, columns=["size_bin"])
+                except Exception:
+                    continue
+                counts.update(_aggregate_size_bin_column(t["size_bin"]))
+        # Also try the flat per-country layout (dataset/<country>.parquet).
+        if not counts:
+            for pq_path in sorted(dataset_root.glob("*.parquet")):
+                if pq_path.name in ("all_europe.parquet",):
                     continue
                 try:
                     t = pq.read_table(pq_path, columns=["size_bin"])

@@ -63,11 +63,12 @@ class TestBuildRootReadme:
             _manifest([_country("a", 1), _country("b", 2), _country("c", 3)]),
             tmp_path,
         )
-        assert "across 3" in out
-        # Generic phrasing for non-European coverage (avoids hardcoding
-        # country names that change as new African countries are added).
-        assert "European +" in out
-        assert "in Africa" in out
+        assert "from **3 countries**" in out
+        # The intro is country-count-only; no hardcoded "European"
+        # or "Africa" strings should appear (those would couple the
+        # README to the current continent mix and drift over time).
+        assert "European" not in out
+        assert "in Africa" not in out
 
     def test_mentions_total_polygons(self, tmp_path: Path) -> None:
         sample = tmp_path / "sample.jsonl"

@@ -366,7 +366,10 @@ def _fetch_full_row_from_parquet(
         return None
     parquet = DATASET_DIR / "per_country" / country / f"{country}.parquet"
     if not parquet.is_file():
-        return None
+        # Fallback: flat layout produced before organize_dataset.py ran.
+        parquet = DATASET_DIR / f"{country}.parquet"
+        if not parquet.is_file():
+            return None
     try:
         t = pq.read_table(
             parquet,
@@ -425,19 +428,10 @@ size_categories:
 ---
 
 """
-    # Count clean vs killed to give an accurate status line.
-    n_clean = sum(1 for c in countries_done if c["extract_status"] == "clean")
-    n_killed = sum(1 for c in countries_done if c["extract_status"] == "killed")
-    if n_killed == 0:
-        status_line = (
-            f"All {n_clean} countries are extracted end-to-end "
-            f"(every OSM object examined, `run.json` written)."
-        )
-    else:
-        status_line = (
-            f"{n_clean} of {len(countries_done)} countries are clean. "
-            f"{n_killed} country(ies) were killed mid-pipeline — see 'Known issues' below."
-        )
+    # Count clean vs killed. Only clean countries are surfaced to
+    # the public README; partial extractions are filtered out so the
+    # published table is exactly what readers can rely on.
+    clean_countries = [c for c in countries_done if c["extract_status"] == "clean"]
 
     # Schema description table. Includes geometry if it's included
     # in the dataset. The columns list is built from build_schema() so
@@ -496,8 +490,7 @@ size_categories:
 
     readme = yaml_frontmatter + f"""# osm-polygon-selection dataset
 
-A curated set of OpenStreetMap polygons across {sum(1 for c in countries_done if c['n_polygons'] > 0)}
-countries (49 European + {sum(1 for c in countries_done if c['country'] in NON_EUROPE_COUNTRIES and c['n_polygons'] > 0)} in Africa),
+A curated set of OpenStreetMap polygons from **{len(clean_countries)} countries**,
 classified by **size bin** (`small` / `medium` / `large`, area in
 [0.1, 100] km²) and tagged by continent (Natural Earth admin0 lookup).
 
@@ -522,10 +515,8 @@ small ponds, single fields) and larger than 100 km² (whole countries,
 mountain ranges, big seas) are excluded by the size filter (see
 [Filter chain](#filter-chain) below).
 
-**Status:** {status_line}
-
-**Total polygons:** {sum(c['n_polygons'] for c in countries_done):,}
-(combined parquet: `all_europe.parquet`).
+**Total polygons:** {total_polygons:,}
+(combined parquet: `combined/all_europe.parquet`).
 
 ## What's in this dataset
 
@@ -543,50 +534,72 @@ reproject it directly without re-deriving from centroid+area.
 - Git SHA: {git_sha()}
 - Built: {datetime.now().isoformat()}
 - Source: Geofabrik regional extracts (`https://download.geofabrik.de/`)
-- Whitelist: **22,075 OSM `key=value` tags**, built as the
-  union of two complementary osm-stats pipelines
-  (`docs/whitelist_decisions.md` in the project repo, or read the
-  full rationale in the
-  [blog post](https://noeflandre.com/posts/osm-data-analysis)).
+- OSM tag whitelist: **22,075 unique `key=value` tags**, the
+  deduplicated union of two complementary clustering pipelines
+  derived from the [osm-stats](https://github.com/NoeFlandre/osm-stats)
+  analysis of the OpenStreetMap global tag corpus. The full
+  methodology is described in the accompanying blog post,
+  [OSM data analysis for landuse](https://noeflandre.com/posts/osm-data-analysis).
 
-  **TF-IDF pipeline** (`data/reference/osm_stats/tfidf/cluster_memberships.csv`,
-  225,684 rows, 1,829 base keys, 8,833 HDBSCAN clusters):
-  tokenizes each `key=value` tag, builds a sparse TF-IDF vector,
-  then HDBSCAN over cosine distance. Catches canonical
-  high-volume forms (`landuse=residential`, `natural=water`)
-  but cannot connect tags with no shared surface tokens.
+  Both pipelines start from the same input — every `(key, value)`
+  pair in OSM standardized to lowercase, joined as `key|value`,
+  and filtered to tags with `count_all >= 500`, yielding **225,684
+  unique tags** representing **3.37 B total occurrences** — and
+  produce independent clusterings of this corpus:
 
-  **Embeddings pipeline** (`data/reference/osm_stats/embeddings/cluster_memberships_embeddings.csv`,
-  225,684 rows, 1,829 base keys, 4,955 HDBSCAN clusters):
-  embeds each tag with `all-MiniLM-L6-v2`, then HDBSCAN over
-  cosine distance. Catches semantic synonyms
-  (`landuse=farmyard` ≈ `landuse=meadow` ≈ `landuse=farmland`)
-  that TF-IDF misses.
+  - **TF-IDF (character n-grams) pipeline.** Each tag is tokenized
+    into character n-grams of length 3-5. The corpus is represented
+    as a sparse TF-IDF matrix (224,123 rows × 396,969 n-grams;
+    density 0.014 %), reduced with Truncated SVD to 50 dimensions,
+    then clustered with HDBSCAN (`min_cluster_size=5`,
+    `min_samples=2`, Euclidean distance). This yields **8,833
+    clusters** plus **78,270 noise points** (34.7 % noise ratio).
+    TF-IDF catches canonical high-volume forms
+    (`landuse=residential`, `natural=water`) and is robust to
+    small spelling variants that still share n-grams.
 
-  **Manual labeling per base key** (TF-IDF: 157 yes / 54
-  uncertain / 216 no across 427 base keys; embeddings: 169 yes
-  / 57 uncertain / 207 no across 433 base keys). The union
-  (`yes` in **either** pipeline) yields **236 base keys**.
+  - **Embeddings (potion-base-8M) pipeline.** Each tag is embedded
+    with [`potion-base-8M`](https://github.com/MinishLab/model2vec),
+    a 32 M-parameter static-vector table distilled from
+    `BGE-base-en-v1.5`. The embeddings are L2-normalized, reduced
+    with Truncated SVD to 50 dimensions, then clustered with
+    HDBSCAN over Euclidean distance. This yields **4,955 clusters**
+    plus **106,498 noise points** (47.2 % noise ratio). The
+    semantic embeddings catch synonyms that share no surface
+    tokens — `landuse=farmyard` lands near `landuse=meadow` near
+    `landuse=farmland` — which TF-IDF would scatter.
 
-  **Two-tier tag extraction per kept base key:**
-  Tier A = all tags from real HDBSCAN clusters
-  (`cluster_id != -1`; 16,685 TF-IDF + 18,382 embeddings
-  pre-dedup); Tier B = HDBSCAN noise points
-  (`cluster_id == -1`) rescued at `count_all >= 10,000`
-  (1,171 TF-IDF + 1,023 embeddings). After Python `set` dedup,
-  the union contains **22,075 unique `key=value` strings**.
+  After clustering, each pipeline produces a per-base-key label
+  (`keep = yes | uncertain | no`) covering 427 base keys (TF-IDF:
+  157 yes / 54 uncertain / 216 no) and 433 base keys (embeddings:
+  169 yes / 57 uncertain / 207 no). The whitelist takes the union
+  of the two `yes` sets, yielding **236 base keys**.
 
-  Stage 2 of the pipeline filters polygons by intersecting
-  their `tags` list against this set, recording the first hit
-  as `matched_tag`. Per-country retention runs **~93 % to
-  ~99.9 %**.
+  For each kept base key, the whitelist extracts two tiers of
+  `key=value` tags from the corresponding cluster memberships:
+
+  - **Tier A (real clusters):** every tag from a non-noise
+    HDBSCAN cluster (`cluster_id != -1`) — 16,685 tags from
+    TF-IDF and 18,382 from embeddings (pre-dedup).
+  - **Tier B (noise rescue):** HDBSCAN noise points
+    (`cluster_id == -1`) with `count_all >= 10,000` — high-volume
+    isolated tags that escaped clustering (e.g. `landuse=forest`
+    at ~5.9 M occurrences, `natural=wood` at ~12.4 M occurrences).
+    1,171 tags from TF-IDF and 1,023 from embeddings.
+
+  After Python `set` deduplication across both pipelines, the
+  final whitelist contains **22,075 unique `key=value` strings**
+  and is loaded by Stage 2 as a Python `set[str]` for O(1)
+  intersection.
 
 ## Geographic distribution
 
-![polygon distribution across Europe](map_preview.png)
+![polygon distribution across the dataset's countries](preview/map_preview.png)
 
-(Each circle is one polygon, color-coded by country. Circle size is
-proportional to `sqrt(area_km2)`.)
+A spatial sample of ~4 k representative polygons (one per grid
+cell per country, power-law capped at 200 per country) rendered
+on a folium basemap. See [`sample/`](./sample/) for the source
+JSONL.
 
 ## Size-bin distribution (full dataset)
 
@@ -600,72 +613,38 @@ over the entire dataset (not a sample).
 ## Example row
 
 Here is one concrete row from the Liechtenstein parquet file
-(a `natural=scrub` polygon, area ~0.26 km², fully filled-in with
-all 13 columns):
+(a `natural=*` polygon, fully filled-in with all 13 columns):
 
 {example_row_table}
 
 This row is representative: the full-dataset distribution above
-shows ~80% `small`, ~18% `medium`, ~2% `large`, and the dominant
-whitelist tag families (`natural=*`, `landuse=*`, `leisure=*`)
-account for the majority of `matched_tag` values.
+shows the share of `small` / `medium` / `large` polygons, and
+the dominant whitelist tag families (`natural=*`, `landuse=*`,
+`leisure=*`) account for the majority of `matched_tag` values.
 
 ## Filter chain
 
 Each polygon in this dataset has passed three filters:
 
-1. **Size filter (Stage 0)**: area in [0.1, 100] km².
-   Polygons smaller than 0.1 km² or larger than 100 km² are dropped.
+1. **Size filter (Stage 0)**: area in [0.1, 100] km². Polygons
+   smaller than 0.1 km² or larger than 100 km² are dropped before
+   any tag-based filtering.
 2. **Whitelist filter (Stage 2)**: at least one OSM tag in the
-   **22,075-tag whitelist**, the **union of two osm-stats
-   pipelines** that complement each other:
-   - **TF-IDF pipeline** (`tfidf/cluster_memberships.csv`):
-     tokenize each `key=value` into word pieces, build a sparse
-     TF-IDF vector over the corpus, HDBSCAN over cosine
-     distance. **Strength:** canonical high-volume forms
-     (`landuse=residential`, `natural=water`).
-     **Weakness:** cannot connect tags that share no surface
-     tokens (`landuse=farmyard`, `landuse=meadow`,
-     `landuse=farmland` end up in different clusters).
-   - **Embeddings pipeline**
-     (`embeddings/cluster_memberships_embeddings.csv`):
-     embed each tag with `all-MiniLM-L6-v2` (384-dim,
-     L2-normalized), HDBSCAN over cosine distance.
-     **Strength:** semantic synonyms
-     (`landuse=farmyard` ≈ `landuse=meadow` ≈
-     `landuse=farmland` cluster together).
-     **Weakness:** rarer tags drift toward the nearest cluster
-     centroid (handled by manual labels downstream).
-
-   **Manual labels per base key** (TF-IDF: 157 yes / 54
-   uncertain / 216 no; embeddings: 169 yes / 57 uncertain /
-   207 no). A base key (e.g. `landuse`, `natural`, `leisure`,
-   `amenity`) survives if `keep=yes` in **either** pipeline
-   — yielding **236 base keys**.
-
-   **Two-tier tag inclusion per kept base key:**
-   - **Tier A (real clusters):** every tag from a non-noise
-     HDBSCAN cluster (`cluster_id != -1`). 16,685 tags from
-     TF-IDF + 18,382 from embeddings (pre-dedup).
-   - **Tier B (noise rescue):** HDBSCAN noise points
-     (`cluster_id == -1`) with `count_all >= 10,000` —
-     high-volume isolated tags that escaped clustering (e.g.
-     `landuse=forest` at ~5.9 M occurrences, `natural=wood`
-     at ~12.4 M occurrences). 1,171 tags from TF-IDF + 1,023
-     from embeddings.
-
-   After Python `set` dedup, the union contains **22,075
-   unique `key=value` strings**, loaded as a Python `set[str]`
-   for O(1) intersection. Stage 2 keeps only polygons whose
-   `tags` list intersects this set, recording the first
-   hit as `matched_tag`. Per-country retention runs
-   **~93 % to ~99.9 %**.
+   22,075-tag whitelist described above. Stage 2 keeps only
+   polygons whose `tags` list intersects the whitelist set,
+   recording the first match as `matched_tag`.
 3. **Classify (Stage 3)**: continent assigned via Natural Earth
-   admin0 shapefile, size_bin assigned by area.
+   admin0 shapefile (centroid point-in-polygon), `size_bin`
+   assigned by area.
+
+Per-country retention after whitelist filtering ranges from
+~93 % (large countries with significant urban address-tag
+coverage) to ~99.9 % (sparser regions where almost every
+polygon carries a `natural=*` or `landuse=*` tag).
 
 ## Per-country summary
 
-{build_country_table(countries_done)}
+{build_country_table(clean_countries)}
 """
 
     (out_dir / "README.md").write_text(readme)
