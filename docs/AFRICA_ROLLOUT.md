@@ -15,12 +15,12 @@ For per-country timings, see `docs/PERFORMANCE.md`.
 
 | Metric                    | Value           |
 |---------------------------|----------------:|
-| African countries done    |       **43 / 55** |
-| Total polygons (Africa)   |       509,841   |
-| Total countries (dataset) |       **90**    |
-| Total polygons (dataset)  |     7,725,274   |
+| African countries done    |       **44 / 55** |
+| Total polygons (Africa)   |       558,294   |
+| Total countries (dataset) |       **91**    |
+| Total polygons (dataset)  |     7,773,727   |
 
-The 43 done = 3 prior (morocco, tunisia, algeria) + 24 from
+The 44 done = 3 prior (morocco, tunisia, algeria) + 24 from
 batches 1+2 + 1 most recent (mayotte) + 1 most recent (botswana)
 + 1 most recent (central-african-republic)
 + 1 most recent (ivory-coast) + 1 most recent (burkina-faso)
@@ -28,7 +28,7 @@ batches 1+2 + 1 most recent (mayotte) + 1 most recent (botswana)
 + 1 most recent (ghana) + 1 most recent (senegal-and-gambia)
 + 1 most recent (lesotho) + 1 most recent (chad)
 + 1 most recent (south-sudan) + 1 most recent (ethiopia)
-+ 1 most recent (malawi) + 1 most recent (somalia).
++ 1 most recent (malawi) + 1 most recent (somalia) [pushed].
 
 ---
 
@@ -121,6 +121,13 @@ Sorted by PBF size (smallest first to make early progress visible):
 | 10 | south-africa                 |  396 MB  | PBFs downloaded   |
 | 11 | congo-democratic-republic    |  393 MB  | PBFs downloaded   |
 | 12 | nigeria                      |  678 MB  | PBFs downloaded   |
+
+**Small countries (PBF < 200 MB) recommended for next session**:
+mali, egypt, zimbabwe, sudan.
+
+**Larger countries (PBF >= 200 MB) require longer Stage 0 times**:
+cameroon, zambia, mozambique, kenya, uganda, south-africa,
+congo-democratic-republic, nigeria.
 
 All 25 PBFs are already in `/Volumes/Seagate M3/osm-polygon-selection/raw/`.
 Their `processed/<country>/` directories were cleaned up after the
