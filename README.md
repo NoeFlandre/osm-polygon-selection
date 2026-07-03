@@ -85,6 +85,46 @@ way or multipolygon relation) that:
 3. Was classified by continent (Natural Earth admin0 lookup of the
    centroid) and size bin (area in km²).
 
+### Tag whitelist: how polygons are filtered against OSM tags
+
+The whitelist selects polygons whose tags describe physical
+land-use / land-cover (e.g. `natural=wood`, `landuse=forest`,
+`leisure=park`) rather than abstract entities (buildings,
+addresses, points of interest). It is the **union of two
+parallel pipelines**, both built from the
+[osm-stats](https://github.com/NoeFlandre/osm-stats) clustering
+of OSM tags:
+
+- **TF-IDF pipeline** (`tfidf/cluster_memberships.csv`):
+  clusters tags by lexical similarity of their key/value strings.
+  Produces ~150 superclusters per base key, dominated by
+  high-volume canonical forms (`landuse=residential`, `natural=water`).
+- **Embeddings pipeline** (`embeddings/cluster_memberships_embeddings.csv`):
+  clusters tags by semantic similarity of learned embeddings.
+  Picks up non-lexical patterns (`landuse=farmyard` ≈
+  `landuse=meadow` ≈ `landuse=farmland`) that TF-IDF misses.
+
+Each pipeline independently produces a `keep=yes | uncertain | no`
+label per base key (e.g. `landuse`, `natural`, `leisure`,
+`amenity`, `highway`, `building`, …). We take the **union**:
+a base key survives if `keep=yes` in **either** pipeline. That
+union yields **236 base keys**, which feed a two-tier tag
+extraction:
+
+- **Tier A (real clusters):** every `key=value` from a non-noise
+  cluster (`cluster_id != -1`) for the kept base keys.
+- **Tier B (noise rescue):** HDBSCAN noise points (`cluster_id = -1`)
+  with `count_all >= 10,000` are rescued — these are high-volume
+  isolated tags that escaped clustering (e.g. `landuse=forest`
+  at ~5.9 M occurrences, `natural=wood` at ~12.4 M occurrences).
+
+After dedup the union contains **22,075 unique `key=value`
+strings** (`data/whitelist.json`). Stage 2 of the pipeline
+keeps only polygons whose `tags` field intersects this set,
+recording the first hit as `matched_tag`. See
+`docs/whitelist_decisions.md` for the full rationale and
+`docs/ARCHITECTURE.md` for the data flow.
+
 ---
 
 ## Pipeline (staged, resumable)

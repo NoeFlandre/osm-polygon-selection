@@ -451,14 +451,24 @@ reproject it directly without re-deriving from centroid+area.
 - Git SHA: {git_sha}
 - Built: {built_at}
 - Source: Geofabrik regional extracts (`https://download.geofabrik.de/`)
-- Whitelist: 22,075 OSM `key=value` tags from osm-stats (see
-  `docs/whitelist_decisions.md` in the project repo, or read the
+- Whitelist: **22,075 OSM `key=value` tags**, built as the
+  union of two complementary osm-stats pipelines
+  (`docs/whitelist_decisions.md` in the project repo, or read the
   full rationale in the
   [blog post](https://noeflandre.com/posts/osm-data-analysis)).
-  The whitelist is designed to filter polygons by landuse-style
-  tags (`natural`, `landuse`, `leisure`, `amenity`, etc.) so the
-  dataset focuses on physical land-cover / land-use features
-  rather than buildings, addresses, or points of interest.
+  The **TF-IDF pipeline** clusters tags by lexical similarity
+  (~150 superclusters per base key, dominated by canonical
+  high-volume forms), and the **embeddings pipeline** clusters
+  tags by semantic similarity (catches non-lexical patterns like
+  `landuse=farmyard` ≈ `landuse=meadow`). A base key survives if
+  `keep=yes` in **either** pipeline; that union yields 236 base
+  keys, from which two tiers of `key=value` tags are extracted
+  (Tier A = real clusters, Tier B = HDBSCAN noise rescued at
+  `count_all >= 10,000`). The resulting whitelist filters
+  polygons by landuse-style tags (`natural`, `landuse`,
+  `leisure`, `amenity`, etc.) so the dataset focuses on
+  physical land-cover / land-use features rather than buildings,
+  addresses, or points of interest.
 
 ## Geographic distribution
 
@@ -495,8 +505,34 @@ Each polygon in this dataset has passed three filters:
 1. **Size filter (Stage 0)**: area in [0.1, 100] km².
    Polygons smaller than 0.1 km² or larger than 100 km² are dropped.
 2. **Whitelist filter (Stage 2)**: at least one OSM tag in the
-   22,075-tag whitelist. The whitelist is derived from a clustering
-   of OSM tags across both `tfidf` and `embeddings` analyses.
+   **22,075-tag whitelist**, the **union of two osm-stats
+   pipelines**:
+   - **TF-IDF pipeline** (`tfidf/cluster_memberships.csv`):
+     clusters tags by lexical similarity (key/value string
+     distance). Captures canonical high-volume forms
+     (`landuse=residential`, `natural=water`).
+   - **Embeddings pipeline** (`embeddings/cluster_memberships_embeddings.csv`):
+     clusters tags by semantic similarity of learned embeddings.
+     Captures non-lexical patterns that TF-IDF misses
+     (`landuse=farmyard` ≈ `landuse=meadow` ≈
+     `landuse=farmland`).
+
+   A base key (e.g. `landuse`, `natural`, `leisure`, `amenity`)
+   survives if `keep=yes` in **either** pipeline — that yields
+   **236 base keys**. From each kept base key we extract two
+   tiers of `key=value` tags:
+   - **Tier A (real clusters):** every tag from a non-noise
+     HDBSCAN cluster (`cluster_id != -1`).
+   - **Tier B (noise rescue):** HDBSCAN noise points
+     (`cluster_id = -1`) with `count_all >= 10,000` (e.g.
+     `landuse=forest` at ~5.9 M occurrences, `natural=wood` at
+     ~12.4 M occurrences — isolated but legitimately
+     landuse-relevant).
+
+   After dedup the union contains **22,075 unique `key=value`
+   strings**, loaded as a Python `set[str]` for O(1) intersection.
+   The first whitelist hit on a polygon is recorded as
+   `matched_tag`.
 3. **Classify (Stage 3)**: continent assigned via Natural Earth
    admin0 shapefile, size_bin assigned by area.
 
