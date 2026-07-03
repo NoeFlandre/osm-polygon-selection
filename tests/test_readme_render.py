@@ -501,6 +501,171 @@ class TestBuildCountryReadme:
             f"egypt country README missing curated note; got:\n{out}"
         )
 
+    def test_uses_sudan_country_note(self) -> None:
+        """sudan (large North African country on the Red Sea,
+        formerly Anglo-Egyptian Sudan) should have a curated
+        COUNTRY_NOTES entry mentioning Khartoum or the Nile.
+        """
+        out = build_country_readme(
+            "sudan", 10000, "clean", "2026-07-03"
+        )
+        text = out.lower()
+        assert (
+            "khartoum" in text
+            or "sudan" in text
+            or "nile" in text
+            or "meroe" in text
+        ), (
+            f"sudan country README missing curated note; got:\n{out}"
+        )
+
+    def test_uses_cameroon_country_note(self) -> None:
+        """cameroon (Central African country on the Gulf of
+        Guinea, formerly French Cameroun) should have a curated
+        COUNTRY_NOTES entry mentioning Yaoundé or Douala.
+        """
+        out = build_country_readme(
+            "cameroon", 18000, "clean", "2026-07-03"
+        )
+        text = out.lower()
+        assert (
+            "yaounde" in text
+            or "douala" in text
+            or "cameroon" in text
+            or "cameroun" in text
+        ), (
+            f"cameroon country README missing curated note; got:\n{out}"
+        )
+
+    def test_uses_zambia_country_note(self) -> None:
+        """zambia (landlocked Southern African country, formerly
+        Northern Rhodesia) should have a curated COUNTRY_NOTES
+        entry mentioning Lusaka or Victoria Falls.
+        """
+        out = build_country_readme(
+            "zambia", 15000, "clean", "2026-07-03"
+        )
+        text = out.lower()
+        assert (
+            "lusaka" in text
+            or "zambia" in text
+            or "victoria falls" in text
+            or "kariba" in text
+        ), (
+            f"zambia country README missing curated note; got:\n{out}"
+        )
+
+    def test_uses_mozambique_country_note(self) -> None:
+        """mozambique (Southeast African country on the Indian
+        Ocean, formerly Portuguese East Africa) should have a
+        curated COUNTRY_NOTES entry mentioning Maputo.
+        """
+        out = build_country_readme(
+            "mozambique", 12000, "clean", "2026-07-03"
+        )
+        text = out.lower()
+        assert (
+            "maputo" in text
+            or "mozambique" in text
+            or "gorongosa" in text
+            or "beira" in text
+        ), (
+            f"mozambique country README missing curated note; got:\n{out}"
+        )
+
+    def test_uses_kenya_country_note(self) -> None:
+        """kenya (East African country on the Indian Ocean,
+        crossed by the equator and the Great Rift Valley)
+        should have a curated COUNTRY_NOTES entry mentioning
+        Nairobi or the Maasai Mara.
+        """
+        out = build_country_readme(
+            "kenya", 25000, "clean", "2026-07-03"
+        )
+        text = out.lower()
+        assert (
+            "nairobi" in text
+            or "kenya" in text
+            or "maasai" in text
+            or "mara" in text
+        ), (
+            f"kenya country README missing curated note; got:\n{out}"
+        )
+
+    def test_uses_uganda_country_note(self) -> None:
+        """uganda (landlocked East African country, formerly the
+        British Protectorate of Uganda) should have a curated
+        COUNTRY_NOTES entry mentioning Kampala or the source of
+        the Nile.
+        """
+        out = build_country_readme(
+            "uganda", 25000, "clean", "2026-07-03"
+        )
+        text = out.lower()
+        assert (
+            "kampala" in text
+            or "uganda" in text
+            or "nile" in text
+            or "bwindi" in text
+        ), (
+            f"uganda country README missing curated note; got:\n{out}"
+        )
+
+    def test_uses_south_africa_country_note(self) -> None:
+        """south-africa (large Southern African country on the
+        Atlantic and Indian Oceans) should have a curated
+        COUNTRY_NOTES entry mentioning Pretoria or Cape Town.
+        """
+        out = build_country_readme(
+            "south-africa", 100000, "clean", "2026-07-03"
+        )
+        text = out.lower()
+        assert (
+            "pretoria" in text
+            or "cape town" in text
+            or "johannesburg" in text
+            or "south africa" in text
+        ), (
+            f"south-africa country README missing curated note; got:\n{out}"
+        )
+
+    def test_uses_congo_democratic_republic_country_note(self) -> None:
+        """congo-democratic-republic (large Central African country,
+        formerly Zaire) should have a curated COUNTRY_NOTES entry
+        mentioning Kinshasa or the Congo River.
+        """
+        out = build_country_readme(
+            "congo-democratic-republic", 25000, "clean", "2026-07-03"
+        )
+        text = out.lower()
+        assert (
+            "kinshasa" in text
+            or "congo" in text
+            or "zaire" in text
+            or "lubumbashi" in text
+        ), (
+            f"congo-democratic-republic country README missing "
+            f"curated note; got:\n{out}"
+        )
+
+    def test_uses_nigeria_country_note(self) -> None:
+        """nigeria (large West African country, the most populous
+        in Africa, formerly British Nigeria) should have a curated
+        COUNTRY_NOTES entry mentioning Abuja or Lagos.
+        """
+        out = build_country_readme(
+            "nigeria", 80000, "clean", "2026-07-03"
+        )
+        text = out.lower()
+        assert (
+            "abuja" in text
+            or "lagos" in text
+            or "nigeria" in text
+            or "niger" in text
+        ), (
+            f"nigeria country README missing curated note; got:\n{out}"
+        )
+
 
 class TestWriteMetadataYaml:
     def test_writes_yaml_with_required_fields(self, tmp_path: Path) -> None:

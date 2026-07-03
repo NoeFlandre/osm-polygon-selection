@@ -15,18 +15,19 @@ For per-country timings, see `docs/PERFORMANCE.md`.
 
 | Metric                    | Value           |
 |---------------------------|----------------:|
-| African countries done    |       **38 / 55** |
-| Total polygons (Africa)   |       385,630   |
-| Total countries (dataset) |       **86**    |
-| Total polygons (dataset)  |     7,649,516   |
+| African countries done    |       **40 / 55** |
+| Total polygons (Africa)   |       426,388   |
+| Total countries (dataset) |       **88**    |
+| Total polygons (dataset)  |     7,690,274   |
 
-The 38 done = 3 prior (morocco, tunisia, algeria) + 24 from
+The 40 done = 3 prior (morocco, tunisia, algeria) + 24 from
 batches 1+2 + 1 most recent (mayotte) + 1 most recent (botswana)
 + 1 most recent (central-african-republic)
 + 1 most recent (ivory-coast) + 1 most recent (burkina-faso)
 + 1 most recent (angola) + 1 most recent (guinea)
 + 1 most recent (ghana) + 1 most recent (senegal-and-gambia)
-+ 1 most recent (lesotho) + 1 most recent (chad).
++ 1 most recent (lesotho) + 1 most recent (chad)
++ 1 most recent (south-sudan).
 
 ---
 
@@ -75,7 +76,7 @@ batches 1+2 + 1 most recent (mayotte) + 1 most recent (botswana)
 - rwanda (62 MB, 3,976 polygons)
 - seychelles (2.6 MB, 264 polygons)
 - somalia — IN QUEUE
-- south-sudan — IN QUEUE
+- south-sudan (131 MB PBF, 17,091 polygons) — East African landlocked country; capital Juba, vast Sudd wetland
 - sudan — IN QUEUE
 - tanzania — IN QUEUE
 - uganda — IN QUEUE
@@ -101,28 +102,27 @@ batches 1+2 + 1 most recent (mayotte) + 1 most recent (botswana)
 
 ---
 
-## Queue (16 African countries pending)
+## Queue (14 African countries pending)
 
 Sorted by PBF size (smallest first to make early progress visible):
 
 | # | Country                       | PBF size | Status            |
 |---|-------------------------------|---------:|-------------------|
-| 1 | south-sudan                  |  131 MB  | PBFs downloaded   |
-| 2 | ethiopia                     |  132 MB  | PBFs downloaded   |
-| 3 | malawi                       |  147 MB  | PBFs downloaded   |
-| 4 | somalia                      |  156 MB  | PBFs downloaded   |
-| 5 | mali                         |  164 MB  | PBFs downloaded   |
-| 6 | zimbabwe                     |  170 MB  | PBFs downloaded   |
-| 7 | egypt                        |  169 MB  | PBFs downloaded   |
-| 8 | sudan                        |  193 MB  | PBFs downloaded   |
-| 9 | cameroon                     |  213 MB  | PBFs downloaded   |
-| 10 | zambia                       |  240 MB  | PBFs downloaded   |
-| 11 | mozambique                   |  243 MB  | PBFs downloaded   |
-| 12 | kenya                        |  331 MB  | PBFs downloaded   |
-| 13 | uganda                       |  353 MB  | PBFs downloaded   |
-| 14 | south-africa                 |  396 MB  | PBFs downloaded   |
-| 15 | congo-democratic-republic    |  393 MB  | PBFs downloaded   |
-| 16 | nigeria                      |  678 MB  | PBFs downloaded   |
+| 1 | ethiopia                     |  132 MB  | PBFs downloaded   |
+| 2 | malawi                       |  147 MB  | PBFs downloaded   |
+| 3 | somalia                      |  156 MB  | PBFs downloaded   |
+| 4 | mali                         |  164 MB  | PBFs downloaded   |
+| 5 | zimbabwe                     |  170 MB  | PBFs downloaded   |
+| 6 | egypt                        |  169 MB  | PBFs downloaded   |
+| 7 | sudan                        |  193 MB  | PBFs downloaded   |
+| 8 | cameroon                     |  213 MB  | PBFs downloaded   |
+| 9 | zambia                       |  240 MB  | PBFs downloaded   |
+| 10 | mozambique                   |  243 MB  | PBFs downloaded   |
+| 11 | kenya                        |  331 MB  | PBFs downloaded   |
+| 12 | uganda                       |  353 MB  | PBFs downloaded   |
+| 13 | south-africa                 |  396 MB  | PBFs downloaded   |
+| 14 | congo-democratic-republic    |  393 MB  | PBFs downloaded   |
+| 15 | nigeria                      |  678 MB  | PBFs downloaded   |
 
 All 25 PBFs are already in `/Volumes/Seagate M3/osm-polygon-selection/raw/`.
 Their `processed/<country>/` directories were cleaned up after the
