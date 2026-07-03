@@ -8,32 +8,32 @@ docs in `docs/` (especially `AGENT_HANDOFF.md`, `ARCHITECTURE.md`,
 
 ---
 
-## Current numbers (as of commit `9de694a`, 2 July 2026)
+## Current numbers (as of commit pending, 3 July 2026)
 
 | Metric                          | Value             |
 |---------------------------------|------------------:|
-| Total countries                 |          **77**   |
-| Total polygons                  |      **7,484,912**|
+| Total countries                 |          **78**   |
+| Total polygons                  |      **7,490,239**|
 | Combined parquet size (zstd)    |         ~6.0 GB   |
-| Train / val / test split        | 5,988,419 / 747,272 / 749,221 |
-| HuggingFace files               |              165 |
+| Train / val / test split        | 5,992,225 / 747,123 / 750,891 |
+| HuggingFace files               |              167 |
 | HuggingFace repo                | `NoeFlandre/osm-polygon-selection` |
 
 Breakdown by region:
 
 | Region              | Countries | Polygons |
 |---------------------|----------:|---------:|
-| Europe              |        49 | 7,287,553 |
-| North Africa        |         5 |  152,650 |
-| Sub-Saharan Africa  |        23 |   44,709 |
-| **Total**           |    **77** | **7,484,912** |
+| Europe              |        49 | 7,302,782 |
+| North Africa        |         4 |   96,768 |
+| Sub-Saharan Africa  |        25 |   90,689 |
+| **Total**           |    **78** | **7,490,239** |
 
 (Approximate continent breakdown; per-country numbers are exact.
 See `dataset/manifest.json` for the machine-readable source.)
 
 ---
 
-## Coverage (77 countries)
+## Coverage (78 countries)
 
 **49 European countries**: albania, andorra, austria, azores,
 belarus, belgium, bosnia-herzegovina, bulgaria, croatia, cyprus,
@@ -45,13 +45,13 @@ monaco, montenegro, netherlands, norway, poland, portugal, romania,
 serbia, slovakia, slovenia, spain, sweden, switzerland, turkey,
 ukraine, united-kingdom.
 
-**28 African countries**: morocco, tunisia, algeria, libya, mayotte,
-senegal-and-gambia, guinea-bissau, guinea, sierra-leone, liberia,
-ivory-coast, ghana, togo, benin, burkina-faso, mali, mauritania,
-niger, cape-verde, gabon, congo-brazzaville, central-african-republic,
-burundi, equatorial-guinea, djibouti, eritrea, rwanda, namibia,
-swaziland, seychelles, comores, sao-tome-and-principe, mauritius,
-canary-islands, saint-helena-ascension-and-tristan-da-cunha.
+**29 African countries**: morocco, tunisia, algeria, libya,
+botswana, mayotte, guinea-bissau, sierra-leone, liberia,
+togo, benin, mauritania, niger, cape-verde, gabon,
+congo-brazzaville, burundi, equatorial-guinea, djibouti, eritrea,
+rwanda, namibia, swaziland, seychelles, comores,
+sao-tome-and-principe, mauritius, canary-islands,
+saint-helena-ascension-and-tristan-da-cunha.
 
 (See `dataset/manifest.json` for the authoritative list.)
 
@@ -73,9 +73,9 @@ to local SSD. See `docs/AGENT_HANDOFF.md` for the storage policy.
 
 | Suite                                  | Tests |
 |----------------------------------------|------:|
-| Full suite (without flaky wall-clock)  |  278  |
+| Full suite (without flaky wall-clock)  |  279  |
 | Flaky wall-clock test (deselected)     |    1  |
-| **Total**                              | **280** |
+| **Total**                              | **281** |
 
 Run:
 ```bash
@@ -87,16 +87,17 @@ uv run pytest tests/ \
 
 ## In-progress work
 
-**Africa rollout**: 28 of 55 African countries done. 26 remaining
-(Nigeria 678 MB through Egypt 169 MB). Their PBFs are downloaded to
-the HDD but stage 0 was interrupted; `processed/<country>/` dirs
-were cleaned up. See `docs/AFRICA_ROLLOUT.md` for the queue and
-the resume plan.
+**Africa rollout**: 29 of 55 African countries done. 25 remaining
+(Nigeria 678 MB through Central African Republic 94 MB). Their
+PBFs are downloaded to the HDD but stage 0 was interrupted;
+`processed/<country>/` dirs were cleaned up. See
+`docs/AFRICA_ROLLOUT.md` for the queue and the resume plan.
 
 ---
 
 ## Recent commits
 
+- pending feat(botswana): add Botswana + 29th African country (TDD red-green)
 - `9de694a` feat(mayotte): add Mayotte + 28th African country (TDD red-green)
 - `e251cdb` feat(africa): add 24 African countries + bootstrap full /africa/ support
 - `cec4b7c` feat(algeria): add Algeria + third North-African country

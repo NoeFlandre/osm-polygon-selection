@@ -241,19 +241,20 @@ without running `test_make_split.py`.
 
 ### Africa rollout (commit `e251cdb` + `9de694a`)
 
-Currently **77 of 55** African countries done... wait, 28 of 55.
-Africa has ~55 countries in Geofabrik's `/africa/` subtree. **28
+Currently **78 of 55** African countries done... wait, 29 of 55.
+Africa has ~55 countries in Geofabrik's `/africa/` subtree. **29
 are processed** (3 prior: morocco, tunisia, algeria; 24 from
 batch 1+2: sao-tome-and-principe, comores, seychelles,
 saint-helena-ascension-and-tristan-da-cunha, equatorial-guinea,
 djibouti, mauritius, guinea-bissau, cape-verde, gabon,
 congo-brazzaville, burundi, sierra-leone, benin, liberia, namibia,
 rwanda, togo, libya, niger, swaziland, eritrea, mauritania,
-canary-islands; 1 most recent: mayotte). **26 remaining** (the
+canary-islands; 1 most recent: mayotte; 1 most recent: botswana).
+**25 remaining** (the
 larger PBFs: Nigeria, Tanzania, South Africa, DRC, Uganda, Kenya,
 Mozambique, Zambia, Cameroon, Sudan, Zimbabwe, Egypt, Mali,
 Somalia, Malawi, Ethiopia, South Sudan, Chad, Lesotho, Angola,
-Botswana, CAR, Burkina Faso, Ivory Coast, Ghana, Guinea,
+CAR, Burkina Faso, Ivory Coast, Ghana, Guinea,
 Senegal+Gambia). Their PBFs are downloaded in `raw/` but stage 0
 was interrupted; `processed/<country>/` dirs were cleaned up.
 

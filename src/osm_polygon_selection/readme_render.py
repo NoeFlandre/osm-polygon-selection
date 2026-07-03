@@ -66,6 +66,15 @@ COUNTRY_NOTES: dict[str, str] = {
         "but Geofabrik still publishes the PBF under the legacy "
         "'macedonia' name."
     ),
+    "botswana": (
+        "Landlocked Southern African country dominated by the Kalahari "
+        "Desert, with the Okavango Delta (a UNESCO World Heritage "
+        "site) in the northwest and the Chobe/Linyanti wetlands in "
+        "the north. Geofabrik /africa/ PBF (~84 MB). OSM coverage "
+        "is strongest around Gaborone and the protected-area "
+        "boundaries; the central and southwestern Kalahari have "
+        "sparser polygon coverage."
+    ),
 }
 
 

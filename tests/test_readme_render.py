@@ -207,6 +207,17 @@ class TestBuildCountryReadme:
         out = build_country_readme("monaco", 2, "clean", "2026-06-26")
         assert "smallest" in out.lower() or "2 polygons" in out
 
+    def test_uses_botswana_country_note(self) -> None:
+        """botswana (Southern African country, Geofabrik /africa/) should
+        have a curated COUNTRY_NOTES entry mentioning the Kalahari or
+        Okavango Delta, NOT the generic fallback.
+        """
+        out = build_country_readme("botswana", 4119, "clean", "2026-07-03")
+        text = out.lower()
+        assert "kalahari" in text or "okavango" in text, (
+            f"botswana country README missing curated note; got:\n{out}"
+        )
+
 
 class TestWriteMetadataYaml:
     def test_writes_yaml_with_required_fields(self, tmp_path: Path) -> None:

@@ -6,8 +6,8 @@ A curated set of OpenStreetMap (OSM) polygons, classified by
 by country, and published on Hugging Face.
 
 Built with TDD (red-green-modular), optimized end-to-end, and
-actively expanding — currently covers **77 countries** (49 European
-+ 28 African), **7,484,912 polygons** across `combined/all_europe.parquet`
+actively expanding — currently covers **78 countries** (49 European
++ 29 African), **7,490,239 polygons** across `combined/all_europe.parquet`
 (zstd, ~6.0 GB) and 77 per-country parquets.
 
 ---
@@ -68,10 +68,10 @@ policy that took months to learn.
 
 | Region              | Countries | Polygons |
 |---------------------|----------:|---------:|
-| Europe              |        49 | 7,385,553 |
-| North Africa        |         5 |  151,083 |
-| Sub-Saharan Africa  |        23 |  116,276 |
-| **Total**           |    **77** | **7,484,912** |
+| Europe              |        49 | 7,302,782 |
+| North Africa        |         4 |   96,768 |
+| Sub-Saharan Africa  |        25 |   90,689 |
+| **Total**           |    **78** | **7,490,239** |
 
 (The continent breakdown is approximate; the per-country numbers are
 exact. See `dataset/manifest.json` for the machine-readable source.)
