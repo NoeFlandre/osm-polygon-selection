@@ -15,19 +15,20 @@ For per-country timings, see `docs/PERFORMANCE.md`.
 
 | Metric                    | Value           |
 |---------------------------|----------------:|
-| African countries done    |       **41 / 55** |
-| Total polygons (Africa)   |       456,051   |
-| Total countries (dataset) |       **89**    |
-| Total polygons (dataset)  |     7,719,937   |
+| African countries done    |       **43 / 55** |
+| Total polygons (Africa)   |       509,841   |
+| Total countries (dataset) |       **90**    |
+| Total polygons (dataset)  |     7,725,274   |
 
-The 41 done = 3 prior (morocco, tunisia, algeria) + 24 from
+The 43 done = 3 prior (morocco, tunisia, algeria) + 24 from
 batches 1+2 + 1 most recent (mayotte) + 1 most recent (botswana)
 + 1 most recent (central-african-republic)
 + 1 most recent (ivory-coast) + 1 most recent (burkina-faso)
 + 1 most recent (angola) + 1 most recent (guinea)
 + 1 most recent (ghana) + 1 most recent (senegal-and-gambia)
 + 1 most recent (lesotho) + 1 most recent (chad)
-+ 1 most recent (south-sudan) + 1 most recent (ethiopia).
++ 1 most recent (south-sudan) + 1 most recent (ethiopia)
++ 1 most recent (malawi) + 1 most recent (somalia).
 
 ---
 
@@ -75,7 +76,7 @@ batches 1+2 + 1 most recent (mayotte) + 1 most recent (botswana)
 - kenya — IN QUEUE
 - rwanda (62 MB, 3,976 polygons)
 - seychelles (2.6 MB, 264 polygons)
-- somalia — IN QUEUE
+- somalia (156 MB PBF, 48,453 polygons) — Horn of Africa country on the Indian Ocean; capital Mogadishu, includes Somaliland + Puntland
 - south-sudan (131 MB PBF, 17,091 polygons) — East African landlocked country; capital Juba, vast Sudd wetland
 - sudan — IN QUEUE
 - tanzania — IN QUEUE
@@ -86,7 +87,7 @@ batches 1+2 + 1 most recent (mayotte) + 1 most recent (botswana)
 - angola (81 MB PBF, 19,197 polygons) — large Southern African country on the Atlantic coast; capital Luanda, ex-Portuguese colony
 - botswana (84 MB PBF, 5,327 polygons) — landlocked country dominated by the Kalahari Desert
 - lesotho (120 MB PBF, 19,246 polygons) — small landlocked Southern African country, the 'Kingdom in the Sky'; capital Maseru
-- malawi — IN QUEUE
+- malawi (147 MB PBF, 5,337 polygons) — landlocked Southeast African country dominated by Lake Malawi
 - mozambique — IN QUEUE
 - namibia (51 MB, 9,316 polygons)
 - south-africa — IN QUEUE
@@ -102,26 +103,24 @@ batches 1+2 + 1 most recent (mayotte) + 1 most recent (botswana)
 
 ---
 
-## Queue (13 African countries pending)
+## Queue (11 African countries pending)
 
 Sorted by PBF size (smallest first to make early progress visible):
 
 | # | Country                       | PBF size | Status            |
 |---|-------------------------------|---------:|-------------------|
-| 1 | malawi                       |  147 MB  | PBFs downloaded   |
-| 2 | somalia                      |  156 MB  | PBFs downloaded   |
-| 3 | mali                         |  164 MB  | PBFs downloaded   |
-| 4 | zimbabwe                     |  170 MB  | PBFs downloaded   |
-| 5 | egypt                        |  169 MB  | PBFs downloaded   |
-| 6 | sudan                        |  193 MB  | PBFs downloaded   |
-| 7 | cameroon                     |  213 MB  | PBFs downloaded   |
-| 8 | zambia                       |  240 MB  | PBFs downloaded   |
-| 9 | mozambique                   |  243 MB  | PBFs downloaded   |
-| 10 | kenya                        |  331 MB  | PBFs downloaded   |
-| 11 | uganda                       |  353 MB  | PBFs downloaded   |
-| 12 | south-africa                 |  396 MB  | PBFs downloaded   |
-| 13 | congo-democratic-republic    |  393 MB  | PBFs downloaded   |
-| 14 | nigeria                      |  678 MB  | PBFs downloaded   |
+| 1 | mali                         |  164 MB  | PBFs downloaded   |
+| 2 | egypt                        |  169 MB  | PBFs downloaded   |
+| 3 | zimbabwe                     |  170 MB  | PBFs downloaded   |
+| 4 | sudan                        |  193 MB  | PBFs downloaded   |
+| 5 | cameroon                     |  213 MB  | PBFs downloaded   |
+| 6 | zambia                       |  240 MB  | PBFs downloaded   |
+| 7 | mozambique                   |  243 MB  | PBFs downloaded   |
+| 8 | kenya                        |  331 MB  | PBFs downloaded   |
+| 9 | uganda                       |  353 MB  | PBFs downloaded   |
+| 10 | south-africa                 |  396 MB  | PBFs downloaded   |
+| 11 | congo-democratic-republic    |  393 MB  | PBFs downloaded   |
+| 12 | nigeria                      |  678 MB  | PBFs downloaded   |
 
 All 25 PBFs are already in `/Volumes/Seagate M3/osm-polygon-selection/raw/`.
 Their `processed/<country>/` directories were cleaned up after the
