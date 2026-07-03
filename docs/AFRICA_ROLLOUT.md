@@ -15,12 +15,12 @@ For per-country timings, see `docs/PERFORMANCE.md`.
 
 | Metric                    | Value           |
 |---------------------------|----------------:|
-| African countries done    |       **50 / 55** |
-| Total polygons (Africa)   |       756,370   |
-| Total countries (dataset) |       **97**    |
-| Total polygons (dataset)  |     7,971,803   |
+| African countries done    |       **51 / 55** |
+| Total polygons (Africa)   |       767,471   |
+| Total countries (dataset) |       **98**    |
+| Total polygons (dataset)  |     7,982,904   |
 
-The 50 done = 3 prior (morocco, tunisia, algeria) + 24 from
+The 51 done = 3 prior (morocco, tunisia, algeria) + 24 from
 batches 1+2 + 1 most recent (mayotte) + 1 most recent (botswana)
 + 1 most recent (central-african-republic)
 + 1 most recent (ivory-coast) + 1 most recent (burkina-faso)
@@ -31,7 +31,8 @@ batches 1+2 + 1 most recent (mayotte) + 1 most recent (botswana)
 + 1 most recent (malawi) + 1 most recent (somalia)
 + 1 most recent (mali) + 1 most recent (egypt)
 + 1 most recent (zimbabwe) + 1 most recent (sudan)
-+ 1 most recent (cameroon) + 1 most recent (zambia).
++ 1 most recent (cameroon) + 1 most recent (zambia)
++ 1 most recent (mozambique).
 
 ---
 
@@ -91,7 +92,7 @@ batches 1+2 + 1 most recent (mayotte) + 1 most recent (botswana)
 - botswana (84 MB PBF, 5,327 polygons) — landlocked country dominated by the Kalahari Desert
 - lesotho (120 MB PBF, 19,246 polygons) — small landlocked Southern African country, the 'Kingdom in the Sky'; capital Maseru
 - malawi (147 MB PBF, 5,337 polygons) — landlocked Southeast African country dominated by Lake Malawi
-- mozambique — IN QUEUE
+- mozambique (243 MB PBF, 11,101 polygons) — Southeast African country on the Indian Ocean (formerly Portuguese East Africa); capital Maputo, Gorongosa National Park
 - namibia (51 MB, 9,316 polygons)
 - south-africa — IN QUEUE
 - swaziland (29.1 MB, 4,113 polygons)
@@ -106,18 +107,17 @@ batches 1+2 + 1 most recent (mayotte) + 1 most recent (botswana)
 
 ---
 
-## Queue (6 African countries pending)
+## Queue (5 African countries pending)
 
 Sorted by PBF size (smallest first to make early progress visible):
 
 | # | Country                       | PBF size | Status            |
 |---|-------------------------------|---------:|-------------------|
-| 1 | mozambique                   |  243 MB  | PBFs downloaded   |
-| 2 | kenya                        |  331 MB  | PBFs downloaded   |
-| 3 | uganda                       |  353 MB  | PBFs downloaded   |
+| 1 | kenya                        |  331 MB  | PBFs downloaded   |
+| 2 | uganda                       |  353 MB  | PBFs downloaded   |
+| 3 | congo-democratic-republic    |  393 MB  | PBFs downloaded   |
 | 4 | south-africa                 |  396 MB  | PBFs downloaded   |
-| 5 | congo-democratic-republic    |  393 MB  | PBFs downloaded   |
-| 6 | nigeria                      |  678 MB  | PBFs downloaded   |
+| 5 | nigeria                      |  678 MB  | PBFs downloaded   |
 
 **Small countries (PBF < 200 MB) recommended for next session**:
 mali, egypt, zimbabwe, sudan.
