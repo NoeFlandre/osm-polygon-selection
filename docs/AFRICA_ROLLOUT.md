@@ -15,12 +15,12 @@ For per-country timings, see `docs/PERFORMANCE.md`.
 
 | Metric                    | Value           |
 |---------------------------|----------------:|
-| African countries done    |       **51 / 55** |
-| Total polygons (Africa)   |       767,471   |
-| Total countries (dataset) |       **98**    |
-| Total polygons (dataset)  |     7,982,904   |
+| African countries done    |       **52 / 55** |
+| Total polygons (Africa)   |       784,387   |
+| Total countries (dataset) |       **99**    |
+| Total polygons (dataset)  |     7,999,820   |
 
-The 51 done = 3 prior (morocco, tunisia, algeria) + 24 from
+The 52 done = 3 prior (morocco, tunisia, algeria) + 24 from
 batches 1+2 + 1 most recent (mayotte) + 1 most recent (botswana)
 + 1 most recent (central-african-republic)
 + 1 most recent (ivory-coast) + 1 most recent (burkina-faso)
@@ -32,7 +32,7 @@ batches 1+2 + 1 most recent (mayotte) + 1 most recent (botswana)
 + 1 most recent (mali) + 1 most recent (egypt)
 + 1 most recent (zimbabwe) + 1 most recent (sudan)
 + 1 most recent (cameroon) + 1 most recent (zambia)
-+ 1 most recent (mozambique).
++ 1 most recent (mozambique) + 1 most recent (kenya).
 
 ---
 
@@ -77,7 +77,7 @@ batches 1+2 + 1 most recent (mayotte) + 1 most recent (botswana)
 - djibouti (6.7 MB, 576 polygons)
 - eritrea (29.5 MB, 3,278 polygons)
 - ethiopia (132 MB PBF, 29,663 polygons) — large East African country on the Ethiopian Highlands; capital Addis Ababa, never colonized (Abyssinia)
-- kenya — IN QUEUE
+- kenya (331 MB PBF, 16,916 polygons) — East African country on the Indian Ocean, crossed by the equator and the Great Rift Valley; capital Nairobi, Maasai Mara National Reserve
 - rwanda (62 MB, 3,976 polygons)
 - seychelles (2.6 MB, 264 polygons)
 - somalia (156 MB PBF, 48,453 polygons) — Horn of Africa country on the Indian Ocean; capital Mogadishu, includes Somaliland + Puntland
@@ -107,17 +107,16 @@ batches 1+2 + 1 most recent (mayotte) + 1 most recent (botswana)
 
 ---
 
-## Queue (5 African countries pending)
+## Queue (4 African countries pending)
 
 Sorted by PBF size (smallest first to make early progress visible):
 
 | # | Country                       | PBF size | Status            |
 |---|-------------------------------|---------:|-------------------|
-| 1 | kenya                        |  331 MB  | PBFs downloaded   |
-| 2 | uganda                       |  353 MB  | PBFs downloaded   |
-| 3 | congo-democratic-republic    |  393 MB  | PBFs downloaded   |
-| 4 | south-africa                 |  396 MB  | PBFs downloaded   |
-| 5 | nigeria                      |  678 MB  | PBFs downloaded   |
+| 1 | uganda                       |  353 MB  | PBFs downloaded   |
+| 2 | congo-democratic-republic    |  393 MB  | PBFs downloaded   |
+| 3 | south-africa                 |  396 MB  | PBFs downloaded   |
+| 4 | nigeria                      |  678 MB  | PBFs downloaded   |
 
 **Small countries (PBF < 200 MB) recommended for next session**:
 mali, egypt, zimbabwe, sudan.
