@@ -15,15 +15,16 @@ For per-country timings, see `docs/PERFORMANCE.md`.
 
 | Metric                    | Value           |
 |---------------------------|----------------:|
-| African countries done    |       **31 / 55** |
-| Total polygons (Africa)   |       270,450   |
-| Total countries (dataset) |       **80**    |
-| Total polygons (dataset)  |     7,558,003   |
+| African countries done    |       **33 / 55** |
+| Total polygons (Africa)   |       298,482   |
+| Total countries (dataset) |       **82**    |
+| Total polygons (dataset)  |     7,586,035   |
 
-The 31 done = 3 prior (morocco, tunisia, algeria) + 24 from
+The 33 done = 3 prior (morocco, tunisia, algeria) + 24 from
 batches 1+2 + 1 most recent (mayotte) + 1 most recent (botswana)
 + 1 most recent (central-african-republic)
-+ 1 most recent (ivory-coast).
++ 1 most recent (ivory-coast) + 1 most recent (burkina-faso)
++ 1 most recent (angola).
 
 ---
 
@@ -46,7 +47,7 @@ batches 1+2 + 1 most recent (mayotte) + 1 most recent (botswana)
 - ghana — IN QUEUE
 - togo (59 MB, 3,408 polygons)
 - benin (45.5 MB, 4,614 polygons)
-- burkina-faso — IN QUEUE
+- burkina-faso (81 MB PBF, 8,835 polygons) — landlocked West African country (formerly Upper Volta); capital Ouagadougou, second city Bobo-Dioulasso
 - mali — IN QUEUE
 - mauritania (29 MB, 9,040 polygons)
 - niger (71 MB, 14,606 polygons)
@@ -79,7 +80,7 @@ batches 1+2 + 1 most recent (mayotte) + 1 most recent (botswana)
 - mayotte (10 MB, 606 polygons) — French Indian Ocean territory
 
 **Southern Africa (9)**:
-- angola — IN QUEUE
+- angola (81 MB PBF, 19,197 polygons) — large Southern African country on the Atlantic coast; capital Luanda, ex-Portuguese colony
 - botswana (84 MB PBF, 5,327 polygons) — landlocked country dominated by the Kalahari Desert
 - lesotho — IN QUEUE
 - malawi — IN QUEUE
@@ -98,35 +99,33 @@ batches 1+2 + 1 most recent (mayotte) + 1 most recent (botswana)
 
 ---
 
-## Queue (23 African countries pending)
+## Queue (21 African countries pending)
 
 Sorted by PBF size (smallest first to make early progress visible):
 
 | # | Country                       | PBF size | Status            |
 |---|-------------------------------|---------:|-------------------|
-| 1 | burkina-faso                  |   81 MB  | PBFs downloaded   |
-| 2 | angola                        |   81 MB  | PBFs downloaded   |
-| 3 | guinea                        |  111 MB  | PBFs downloaded   |
-| 4 | ghana                         |  107 MB  | PBFs downloaded   |
-| 5 | senegal-and-gambia            |  100 MB  | PBFs downloaded   |
-| 6 | lesotho                       |  120 MB  | PBFs downloaded   |
-| 7 | chad                          |  128 MB  | PBFs downloaded   |
-| 8 | south-sudan                  |  131 MB  | PBFs downloaded   |
-| 9 | ethiopia                     |  132 MB  | PBFs downloaded   |
-| 10 | malawi                       |  147 MB  | PBFs downloaded   |
-| 11 | somalia                      |  156 MB  | PBFs downloaded   |
-| 12 | mali                         |  164 MB  | PBFs downloaded   |
-| 13 | zimbabwe                     |  170 MB  | PBFs downloaded   |
-| 14 | egypt                        |  169 MB  | PBFs downloaded   |
-| 15 | sudan                        |  193 MB  | PBFs downloaded   |
-| 16 | cameroon                     |  213 MB  | PBFs downloaded   |
-| 17 | zambia                       |  240 MB  | PBFs downloaded   |
-| 18 | mozambique                   |  243 MB  | PBFs downloaded   |
-| 19 | kenya                        |  331 MB  | PBFs downloaded   |
-| 20 | uganda                       |  353 MB  | PBFs downloaded   |
-| 21 | south-africa                 |  396 MB  | PBFs downloaded   |
-| 22 | congo-democratic-republic    |  393 MB  | PBFs downloaded   |
-| 23 | nigeria                      |  678 MB  | PBFs downloaded   |
+| 1 | guinea                        |  111 MB  | PBFs downloaded   |
+| 2 | ghana                         |  107 MB  | PBFs downloaded   |
+| 3 | senegal-and-gambia            |  100 MB  | PBFs downloaded   |
+| 4 | lesotho                       |  120 MB  | PBFs downloaded   |
+| 5 | chad                          |  128 MB  | PBFs downloaded   |
+| 6 | south-sudan                  |  131 MB  | PBFs downloaded   |
+| 7 | ethiopia                     |  132 MB  | PBFs downloaded   |
+| 8 | malawi                       |  147 MB  | PBFs downloaded   |
+| 9 | somalia                      |  156 MB  | PBFs downloaded   |
+| 10 | mali                         |  164 MB  | PBFs downloaded   |
+| 11 | zimbabwe                     |  170 MB  | PBFs downloaded   |
+| 12 | egypt                        |  169 MB  | PBFs downloaded   |
+| 13 | sudan                        |  193 MB  | PBFs downloaded   |
+| 14 | cameroon                     |  213 MB  | PBFs downloaded   |
+| 15 | zambia                       |  240 MB  | PBFs downloaded   |
+| 16 | mozambique                   |  243 MB  | PBFs downloaded   |
+| 17 | kenya                        |  331 MB  | PBFs downloaded   |
+| 18 | uganda                       |  353 MB  | PBFs downloaded   |
+| 19 | south-africa                 |  396 MB  | PBFs downloaded   |
+| 20 | congo-democratic-republic    |  393 MB  | PBFs downloaded   |
+| 21 | nigeria                      |  678 MB  | PBFs downloaded   |
 
 All 25 PBFs are already in `/Volumes/Seagate M3/osm-polygon-selection/raw/`.
 Their `processed/<country>/` directories were cleaned up after the

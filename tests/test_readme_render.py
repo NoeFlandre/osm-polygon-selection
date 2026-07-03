@@ -247,6 +247,39 @@ class TestBuildCountryReadme:
             f"ivory-coast country README missing curated note; got:\n{out}"
         )
 
+    def test_uses_burkina_faso_country_note(self) -> None:
+        """burkina-faso (landlocked West African country, formerly
+        Upper Volta) should have a curated COUNTRY_NOTES entry
+        mentioning Ouagadougou or Bobo-Dioulasso or the Sahel,
+        NOT the generic fallback.
+        """
+        out = build_country_readme(
+            "burkina-faso", 15000, "clean", "2026-07-03"
+        )
+        text = out.lower()
+        assert (
+            "ouagadougou" in text
+            or "bobo-dioulasso" in text
+            or "sahel" in text
+            or "volta" in text
+        ), (
+            f"burkina-faso country README missing curated note; got:\n{out}"
+        )
+
+    def test_uses_angola_country_note(self) -> None:
+        """angola (large Southern African country on the Atlantic,
+        former Portuguese colony) should have a curated
+        COUNTRY_NOTES entry mentioning Luanda or a distinctive
+        Angolan geographic feature, NOT the generic fallback.
+        """
+        out = build_country_readme(
+            "angola", 15000, "clean", "2026-07-03"
+        )
+        text = out.lower()
+        assert "luanda" in text or "angola" in text or "namib" in text, (
+            f"angola country README missing curated note; got:\n{out}"
+        )
+
 
 class TestWriteMetadataYaml:
     def test_writes_yaml_with_required_fields(self, tmp_path: Path) -> None:

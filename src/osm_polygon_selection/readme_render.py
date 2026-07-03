@@ -94,6 +94,27 @@ COUNTRY_NOTES: dict[str, str] = {
         "include the Comoé National Park (a UNESCO World Heritage "
         "site) and the Taï National Park in the southwest."
     ),
+    "burkina-faso": (
+        "Landlocked West African country (formerly Upper Volta) "
+        "crossed by three tributaries of the Volta River and "
+        "transitioning from the Sudano-Sahelian savanna in the "
+        "south to the Sahel in the north. Capital Ouagadougou and "
+        "second city Bobo-Dioulasso have good OSM coverage; the "
+        "northern Sahel is sparsely mapped. Geofabrik /africa/ "
+        "PBF (~81 MB). Notable protected areas include the "
+        "Arly and W National Parks (the latter a transboundary "
+        "UNESCO site shared with Niger and Benin)."
+    ),
+    "angola": (
+        "Large Southern African country on the Atlantic coast, "
+        "former Portuguese colony, with a long coastline from the "
+        "Congo River mouth in the north to the Namib Desert in the "
+        "south. Capital Luanda has good OSM coverage; the interior "
+        "is sparsely mapped. Geofabrik /africa/ PBF (~81 MB). "
+        "Notable protected areas include Iona National Park (in "
+        "the Namib fringe), Kissama (Quiçama) National Park near "
+        "Luanda, and the Calandula / Kalandula waterfalls."
+    ),
 }
 
 
