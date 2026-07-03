@@ -218,6 +218,35 @@ class TestBuildCountryReadme:
             f"botswana country README missing curated note; got:\n{out}"
         )
 
+    def test_uses_central_african_republic_country_note(self) -> None:
+        """central-african-republic (landlocked Central African country,
+        Geofabrik /africa/) should have a curated COUNTRY_NOTES entry
+        mentioning the capital Bangui or a distinctive Central African
+        geographic feature, NOT the generic fallback.
+        """
+        out = build_country_readme(
+            "central-african-republic", 6000, "clean", "2026-07-03"
+        )
+        text = out.lower()
+        assert "bangui" in text or "ubangi" in text or "savanna" in text, (
+            f"central-african-republic country README missing curated "
+            f"note; got:\n{out}"
+        )
+
+    def test_uses_ivory_coast_country_note(self) -> None:
+        """ivory-coast (West African country on the Gulf of Guinea,
+        official name Côte d'Ivoire) should have a curated
+        COUNTRY_NOTES entry mentioning Yamoussoukro or Abidjan,
+        NOT the generic fallback.
+        """
+        out = build_country_readme(
+            "ivory-coast", 25000, "clean", "2026-07-03"
+        )
+        text = out.lower()
+        assert "yamoussoukro" in text or "abidjan" in text or "côte" in text, (
+            f"ivory-coast country README missing curated note; got:\n{out}"
+        )
+
 
 class TestWriteMetadataYaml:
     def test_writes_yaml_with_required_fields(self, tmp_path: Path) -> None:

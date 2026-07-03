@@ -75,6 +75,25 @@ COUNTRY_NOTES: dict[str, str] = {
         "boundaries; the central and southwestern Kalahari have "
         "sparser polygon coverage."
     ),
+    "central-african-republic": (
+        "Landlocked Central African country straddling the savanna "
+        "and equatorial forest belts, with the Ubangi River forming "
+        "much of its southern border with the Democratic Republic of "
+        "Congo. Geofabrik /africa/ PBF (~94 MB). Capital Bangui is "
+        "the only large urban mapping centre; the rest of the "
+        "country has patchy OSM coverage that improved after the "
+        "2013 HOT Mapping Initiative."
+    ),
+    "ivory-coast": (
+        "West African country on the Gulf of Guinea (official name "
+        "Côte d'Ivoire) with the political capital Yamoussoukro and "
+        "the economic capital Abidjan. The southern coastal belt has "
+        "excellent OSM coverage around Abidjan's districts and the "
+        "Banco National Park; the northern savanna is more sparsely "
+        "mapped. Geofabrik /africa/ PBF (~85 MB). Notable features "
+        "include the Comoé National Park (a UNESCO World Heritage "
+        "site) and the Taï National Park in the southwest."
+    ),
 }
 
 
