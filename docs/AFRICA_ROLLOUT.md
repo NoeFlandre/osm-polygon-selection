@@ -15,12 +15,12 @@ For per-country timings, see `docs/PERFORMANCE.md`.
 
 | Metric                    | Value           |
 |---------------------------|----------------:|
-| African countries done    |       **48 / 55** |
-| Total polygons (Africa)   |       668,897   |
-| Total countries (dataset) |       **95**    |
-| Total polygons (dataset)  |     7,884,330   |
+| African countries done    |       **49 / 55** |
+| Total polygons (Africa)   |       740,686   |
+| Total countries (dataset) |       **96**    |
+| Total polygons (dataset)  |     7,956,119   |
 
-The 48 done = 3 prior (morocco, tunisia, algeria) + 24 from
+The 49 done = 3 prior (morocco, tunisia, algeria) + 24 from
 batches 1+2 + 1 most recent (mayotte) + 1 most recent (botswana)
 + 1 most recent (central-african-republic)
 + 1 most recent (ivory-coast) + 1 most recent (burkina-faso)
@@ -30,7 +30,8 @@ batches 1+2 + 1 most recent (mayotte) + 1 most recent (botswana)
 + 1 most recent (south-sudan) + 1 most recent (ethiopia)
 + 1 most recent (malawi) + 1 most recent (somalia)
 + 1 most recent (mali) + 1 most recent (egypt)
-+ 1 most recent (zimbabwe) + 1 most recent (sudan).
++ 1 most recent (zimbabwe) + 1 most recent (sudan)
++ 1 most recent (cameroon).
 
 ---
 
@@ -61,7 +62,7 @@ batches 1+2 + 1 most recent (mayotte) + 1 most recent (botswana)
 - nigeria — IN QUEUE
 
 **Central Africa (6)**:
-- cameroon — IN QUEUE
+- cameroon (213 MB PBF, 71,789 polygons) — Central African country on the Gulf of Guinea, often called 'Africa in miniature'; capital Yaoundé, economic capital Douala
 - central-african-republic (94 MB PBF, 53,491 polygons) — landlocked country straddling the savanna and equatorial forest belts; Bangui is the only urban mapping centre
 - chad (128 MB PBF, 23,667 polygons) — large landlocked Central African country; capital N'Djamena, Lake Chad
 - congo-brazzaville (30.7 MB, 6,643 polygons)
@@ -105,20 +106,19 @@ batches 1+2 + 1 most recent (mayotte) + 1 most recent (botswana)
 
 ---
 
-## Queue (8 African countries pending)
+## Queue (7 African countries pending)
 
 Sorted by PBF size (smallest first to make early progress visible):
 
 | # | Country                       | PBF size | Status            |
 |---|-------------------------------|---------:|-------------------|
-| 1 | cameroon                     |  213 MB  | PBFs downloaded   |
-| 2 | zambia                       |  240 MB  | PBFs downloaded   |
-| 3 | mozambique                   |  243 MB  | PBFs downloaded   |
-| 4 | kenya                        |  331 MB  | PBFs downloaded   |
-| 5 | uganda                       |  353 MB  | PBFs downloaded   |
-| 6 | south-africa                 |  396 MB  | PBFs downloaded   |
-| 7 | congo-democratic-republic    |  393 MB  | PBFs downloaded   |
-| 8 | nigeria                      |  678 MB  | PBFs downloaded   |
+| 1 | zambia                       |  240 MB  | PBFs downloaded   |
+| 2 | mozambique                   |  243 MB  | PBFs downloaded   |
+| 3 | kenya                        |  331 MB  | PBFs downloaded   |
+| 4 | uganda                       |  353 MB  | PBFs downloaded   |
+| 5 | south-africa                 |  396 MB  | PBFs downloaded   |
+| 6 | congo-democratic-republic    |  393 MB  | PBFs downloaded   |
+| 7 | nigeria                      |  678 MB  | PBFs downloaded   |
 
 **Small countries (PBF < 200 MB) recommended for next session**:
 mali, egypt, zimbabwe, sudan.
