@@ -3,7 +3,7 @@
 Adds a ``split`` column (string, one of ``"train"`` / ``"val"`` /
 ``"test"``) to every per-country parquet in
 ``dataset/per_country/<country>/<country>.parquet`` and rebuilds the
-combined ``dataset/combined/all_europe.parquet`` to include the new
+combined ``dataset/combined/all_world.parquet`` to include the new
 column.
 
 Stratification is **by country**: each country gets its rows
@@ -14,7 +14,7 @@ Output:
 
 - per-country parquets are rewritten in place with the new column
   appended (small row groups + page indexes for HF viewer compat).
-- combined ``dataset/combined/all_europe.parquet`` is rewritten with
+- combined ``dataset/combined/all_world.parquet`` is rewritten with
   the same small row groups.
 - ``dataset/splits/split_manifest.json`` is written with the seed,
   ratios, stratify_by, total counts, and per-country counts.
@@ -218,7 +218,7 @@ def _add_split_column_streaming(parquet_path: Path, splits: np.ndarray) -> None:
 
 
 def _write_combined(root: Path) -> int:
-    """Rebuild combined/all_europe.parquet from per-country parquets.
+    """Rebuild combined/all_world.parquet from per-country parquets.
 
     Returns the number of rows in the combined file.
     """
@@ -233,7 +233,7 @@ def _write_combined(root: Path) -> int:
     if not tables:
         raise RuntimeError("no per-country parquets to combine")
     combined = pa.concat_tables(tables, promote_options="default")
-    out = root / "combined" / "all_europe.parquet"
+    out = root / "combined" / "all_world.parquet"
     out.parent.mkdir(parents=True, exist_ok=True)
     pq.write_table(
         combined,
@@ -257,7 +257,7 @@ def _write_combined_streaming(
 
     Concatenates per-country parquets WITHOUT materializing them all
     in memory: walks each parquet's row groups in order and writes
-    them one at a time to ``combined/all_europe.parquet`` via
+    them one at a time to ``combined/all_world.parquet`` via
     ``ParquetWriter.write_batch``.
 
     The combined parquet has the same columns as the per-country
@@ -301,7 +301,7 @@ def _write_combined_streaming(
         )
     combined_schema = base_schema.append(pa.field("split", _SPLIT_TYPE))
 
-    out = root / "combined" / "all_europe.parquet"
+    out = root / "combined" / "all_world.parquet"
     out.parent.mkdir(parents=True, exist_ok=True)
     fd, tmp_path = tempfile.mkstemp(
         prefix=".combined_", suffix=".parquet", dir=str(out.parent),
@@ -426,7 +426,7 @@ def make_split(
     n_combined = _write_combined_streaming(
         root, seed=seed, ratios=ratios, manifest=manifest,
     )
-    print(f"\ncombined/all_europe.parquet rebuilt with {n_combined:,} rows")
+    print(f"\ncombined/all_world.parquet rebuilt with {n_combined:,} rows")
 
     out_manifest = {
         "seed": seed,

@@ -24,7 +24,7 @@ For conventions + storage policy + TDD workflow, see
                                 │                          │
                                 │ dataset/                 │
                                 │  per_country/<c>/<c>.pq  │
-                                │  combined/all_europe.pq  │
+                                │  combined/all_world.pq  │
                                 │  sample/sample_map.jsonl │
                                 │  preview/map_preview.png │
                                 │  splits/split_manifest  │
@@ -51,7 +51,7 @@ The 7 layers, top-to-bottom:
    the size filter (0.1-100 km²) and got continent + size_bin tags.
 5. **Per-country parquet** (`dataset/per_country/<c>/<c>.parquet`):
    one zstd-compressed parquet per country.
-6. **Combined parquet** (`dataset/combined/all_europe.parquet`):
+6. **Combined parquet** (`dataset/combined/all_world.parquet`):
    all countries concatenated + a `split` column.
 7. **HuggingFace** (`NoeFlandre/osm-polygon-selection`): final
    publication.
@@ -168,7 +168,7 @@ note (blurb for the README), edit `COUNTRY_NOTES` in
 ### `src/osm_polygon_selection/dataset_layout.py`
 
 Moves flat `dataset/` files into the HF viewer layout:
-`per_country/<c>/<c>.parquet`, `combined/all_europe.parquet`,
+`per_country/<c>/<c>.parquet`, `combined/all_world.parquet`,
 `sample/`, `preview/`. Called by `scripts/organize_dataset.py`.
 
 ### `src/osm_polygon_selection/country_table.py`, `sample_table.py`, `git_meta.py`, `extract_status.py`
@@ -193,7 +193,7 @@ Thin CLIs. They read paths from CLI args + `whitelist.json` from
 
 The big one. Walks `processed/<country>/` directories, runs the
 streaming writer per country (writes `per_country/<c>/<c>.parquet`
-and `all_europe.parquet` flat at the dataset root), then
+and `all_world.parquet` flat at the dataset root), then
 `organize_dataset.py` moves them into the HF viewer layout.
 
 Key behaviors:
@@ -224,7 +224,7 @@ floor. Used by the static map preview.
 ### `scripts/make_split.py`
 
 Train/val/test split. The critical optimization (commit `1edc041`):
-per-country parquets are NOT rewritten; only `combined/all_europe.parquet`
+per-country parquets are NOT rewritten; only `combined/all_world.parquet`
 gets a `split` column. Wall-clock dropped from ~10 min to ~2.5 min.
 
 Key behaviors:
@@ -369,7 +369,7 @@ A few key decisions and their rationale:
 
 - **Performance**: skipping the per-country rewrites dropped
   `make_split.py` from ~10 min to ~2.5 min.
-- **Single source of truth**: only `combined/all_europe.parquet`
+- **Single source of truth**: only `combined/all_world.parquet`
   has splits; per-country parquets are pure data.
 - **Deterministic reconstruction**: given `(seed, country_index,
   n_rows)`, splits are reproducible.

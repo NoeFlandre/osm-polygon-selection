@@ -414,7 +414,7 @@ mountain ranges, big seas) are excluded by the size filter (see
 [Filter chain](#filter-chain) below).
 
 **Total polygons:** {total_polygons:,}
-(combined parquet: `combined/all_europe.parquet`).
+(combined parquet: `combined/all_world.parquet`).
 
 ## Layout
 
@@ -424,13 +424,81 @@ you need:
 | folder | what's inside | typical size |
 |--------|---------------|--------------|
 | [`per_country/`](./per_country/) | one folder per country with `<country>.parquet` + `README.md` | ~7 GB total, <1 MB per small country |
-| [`combined/`](./combined/) | `all_europe.parquet` — every polygon in one file | ~9 GB |
+| [`combined/`](./combined/) | `all_world.parquet` — every polygon in one file | ~9 GB |
 | [`sample/`](./sample/) | `sample_map.jsonl` — ~4k representative polygons for quick viz | <1 MB |
 | [`preview/`](./preview/) | `map_preview.png` — static map thumbnail | ~1 MB |
 
 Start with `sample/` or `preview/` for a quick look. Pull
 `per_country/<country>/<country>.parquet` for a single-country
-study. Use `combined/all_europe.parquet` for cross-country work.
+study. Use `combined/all_world.parquet` for cross-country work.
+
+## Tag selection
+
+A polygon is kept in this dataset if and only if it satisfies two
+filters. Both are set intersections on `key=value` strings — there is
+no per-key policy and no per-tag count threshold.
+
+1. **Size filter (Stage 0).** The polygon must have area in
+   [0.1, 100] km² and be a closed way or multipolygon relation
+   (nodes and lines are dropped upstream).
+2. **Whitelist filter (Stage 2).** The polygon's `tags` list
+   (which is `["key=value", ...]`) must share at least one element
+   with the whitelist. This is `set(row["tags"]) & whitelist`,
+   evaluated on the first match only.
+
+### How the whitelist was built
+
+The whitelist is the **union of two osm-stats clustering pipelines**
+(TF-IDF and embeddings) at both the base-key level and the tag
+level. There is no intersection at any stage.
+
+**Layer 1 — base keys kept.** For each pipeline we read its
+`base_key_families.xlsx` and take the base keys labeled
+`keep = "yes"`. The whitelist keeps the union of the two
+`yes` sets — a base key survives if either pipeline labels it
+`yes`.
+
+| Pipeline    | base keys | yes | uncertain | no |
+|-------------|----------:|----:|----------:|---:|
+| TF-IDF      |       427 | 157 |        54 | 216 |
+| Embeddings  |       433 | 169 |        57 | 207 |
+| **Union**   |     —     |**236** | — | — |
+
+Of the 236 union base keys, 90 are labeled `yes` in both
+pipelines, 67 are TF-IDF-only, and 79 are embeddings-only.
+
+**Layer 2 — tags from each pipeline.** For each kept base key
+we expand to specific `key=value` strings from the
+corresponding `cluster_memberships*.csv`. Two tiers:
+
+- **Tier A** — every tag from a non-noise HDBSCAN cluster
+  (`cluster_id != -1`), always included.
+- **Tier B** — HDBSCAN noise points (`cluster_id == -1`) are
+  included only when `count_all >= 10,000`. These are
+  high-volume isolated tags that escaped clustering (e.g.
+  `landuse=forest` at ~5.9 M occurrences, `natural=wood` at
+  ~12.4 M occurrences).
+
+Each pipeline then produces its own tag set:
+
+| Pipeline    | tags |
+|-------------|-----:|
+| TF-IDF      | 17,856 |
+| Embeddings  | 19,405 |
+| **Intersection** | 15,186 |
+| **Union (final whitelist)** | **22,075** |
+
+The final whitelist is the **union of the two pipelines' tag
+sets** (TF-IDF ∪ embeddings), deduplicated via Python `set`. Of
+the 22,075 unique `key=value` strings, 15,186 appear in both
+pipelines, 2,670 are TF-IDF-only, and 4,219 are embeddings-only.
+The whitelist is loaded by Stage 2 as a Python `set[str]` for
+O(1) intersection.
+
+The full pipeline is documented in
+[`docs/whitelist_decisions.md`](https://github.com/NoeFlandre/osm-polygon-selection/blob/main/docs/whitelist_decisions.md)
+and the clustering methodology in the accompanying
+[blog post](https://noeflandre.com/posts/osm-data-analysis).
 
 ## What's in this dataset
 
@@ -518,7 +586,7 @@ JSONL.
 ## Size-bin distribution (full dataset)
 
 Counts every polygon in the {total_polygons:,}-polygon dataset by
-`size_bin`, computed directly from `combined/all_europe.parquet`
+`size_bin`, computed directly from `combined/all_world.parquet`
 via `pyarrow.compute.value_counts`. Percentages are exact ratios
 over the entire dataset, not a sample.
 
@@ -569,7 +637,7 @@ polygon carries a `natural=*` or `landuse=*` tag).
 _SPLIT_SECTION_TEMPLATE = """## Train / val / test split
 
 Every row in every parquet (`per_country/<country>/<country>.parquet`
-and `combined/all_europe.parquet`) carries a **`split`** column with
+and `combined/all_world.parquet`) carries a **`split`** column with
 one of three values: `train`, `val`, or `test`.
 
 | split | ratio | polygons |
@@ -589,7 +657,7 @@ To load only one split (e.g. for training), filter in pyarrow:
 ```python
 import pyarrow.compute as pc
 import pyarrow.parquet as pq
-table = pq.read_table("combined/all_europe.parquet")
+table = pq.read_table("combined/all_world.parquet")
 train = table.filter(pc.equal(table["split"], "train"))
 ```
 
@@ -710,7 +778,7 @@ t = pq.read_table("per_country/france/france.parquet")
 
 Single parquet containing every polygon across all {n_countries} countries.
 
-- `all_europe.parquet` — schema matches the root README. Includes a `split` column (`train`/`val`/`test`) if `make_split.py` has been run.
+- `all_world.parquet` — schema matches the root README. Includes a `split` column (`train`/`val`/`test`) if `make_split.py` has been run.
 
 Use this for cross-country work. For per-country analysis, pull from `per_country/` instead (smaller per-file download).
 """,
@@ -759,7 +827,7 @@ classified by continent + size bin.
 ## Geometry
 
 The parquet file in this folder (`{country}.parquet`) has the same schema as
-the combined `combined/all_europe.parquet`. Each row carries the polygon
+the combined `combined/all_world.parquet`. Each row carries the polygon
 **geometry as WKT** (default), plus centroid + area + the whitelist-matched tag.
 
 Load with:

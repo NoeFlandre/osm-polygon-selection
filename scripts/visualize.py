@@ -175,7 +175,7 @@ def main() -> None:
             "<b>Sampled for visualization (not exhaustive)</b><br>"
             f"Showing ~{len(rows_buffer)} representative polygons "
             "(~1 per K&times;K grid cell per country, power-law "
-            "weighted). See combined/all_europe.parquet for the full "
+            "weighted). See combined/all_world.parquet for the full "
             "dataset.<br>"
             "<br>"
             "<b>Country</b><br>"

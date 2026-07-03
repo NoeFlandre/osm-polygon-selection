@@ -86,7 +86,7 @@ def compute_global_size_bin_distribution(
 ) -> list[tuple[str, int, float]]:
     """Compute the FULL-dataset ``size_bin`` distribution.
 
-    Prefers ``combined/all_europe.parquet`` (one read). Falls back to
+    Prefers ``combined/all_world.parquet`` (one read). Falls back to
     ``per_country/<country>/<country>.parquet`` files when combined
     is missing or unreadable. Per-country parquets without a
     ``size_bin`` column are skipped (older schemas).
@@ -94,8 +94,8 @@ def compute_global_size_bin_distribution(
     Returns a list of ``(size_bin, count, pct)`` tuples in
     ``SIZE_BIN_ORDER``. ``pct`` is over the sum of all bins.
     """
-    combined = dataset_root / "combined" / "all_europe.parquet"
-    flat = dataset_root / "all_europe.parquet"
+    combined = dataset_root / "combined" / "all_world.parquet"
+    flat = dataset_root / "all_world.parquet"
     counts: Counter[str] = Counter()
     if combined.is_file():
         try:
@@ -127,7 +127,7 @@ def compute_global_size_bin_distribution(
         # Also try the flat per-country layout (dataset/<country>.parquet).
         if not counts:
             for pq_path in sorted(dataset_root.glob("*.parquet")):
-                if pq_path.name in ("all_europe.parquet",):
+                if pq_path.name in ("all_world.parquet",):
                     continue
                 try:
                     t = pq.read_table(pq_path, columns=["size_bin"])

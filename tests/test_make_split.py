@@ -111,7 +111,7 @@ def test_split_assigns_all_rows(tmp_path):
     root = _make_split_dataset(tmp_path, {"albania": 50, "andorra": 30})
     ms.make_split(root=root, seed=42)
     combined = pq.read_table(
-        root / "combined" / "all_europe.parquet",
+        root / "combined" / "all_world.parquet",
         columns=["split", "country"],
     )
     df = combined.to_pandas()
@@ -184,11 +184,11 @@ def test_split_is_deterministic(tmp_path):
 
     for c in ("albania", "andorra"):
         t1 = pq.read_table(
-            root1 / "combined" / "all_europe.parquet",
+            root1 / "combined" / "all_world.parquet",
             columns=["split", "country"],
         ).to_pandas()
         t2 = pq.read_table(
-            root2 / "combined" / "all_europe.parquet",
+            root2 / "combined" / "all_world.parquet",
             columns=["split", "country"],
         ).to_pandas()
         s1 = t1[t1["country"] == c]["split"].tolist()
@@ -206,11 +206,11 @@ def test_split_different_seeds_differ(tmp_path):
     ms.make_split(root=root2, seed=43)
 
     t1 = pq.read_table(
-        root1 / "combined" / "all_europe.parquet",
+        root1 / "combined" / "all_world.parquet",
         columns=["split", "country"],
     ).to_pandas()
     t2 = pq.read_table(
-        root2 / "combined" / "all_europe.parquet",
+        root2 / "combined" / "all_world.parquet",
         columns=["split", "country"],
     ).to_pandas()
     s1 = t1[t1["country"] == "albania"]["split"].tolist()
@@ -257,7 +257,7 @@ def test_split_writes_split_column_to_parquet(tmp_path):
     ms = _load_make_split()
     root = _make_split_dataset(tmp_path, {"albania": 25})
     ms.make_split(root=root, seed=42)
-    t = pq.read_table(root / "combined" / "all_europe.parquet")
+    t = pq.read_table(root / "combined" / "all_world.parquet")
     assert "split" in t.schema.names, f"split column missing; got {t.schema.names}"
     split_col = t.column("split")
     assert pa.types.is_string(split_col.type), (
@@ -275,7 +275,7 @@ def test_split_writes_combined_parquet(tmp_path):
     root = _make_split_dataset(tmp_path, {"albania": 50, "andorra": 30})
     ms.make_split(root=root, seed=42)
 
-    combined = root / "combined" / "all_europe.parquet"
+    combined = root / "combined" / "all_world.parquet"
     assert combined.is_file(), f"missing {combined}"
     t = pq.read_table(combined, columns=["split", "country"])
     assert "split" in t.schema.names
@@ -342,7 +342,7 @@ def test_streaming_write_combined_preserves_all_rows(tmp_path):
     n_combined = ms._write_combined_streaming(root)
     assert n_combined == 100
 
-    out = root / "combined" / "all_europe.parquet"
+    out = root / "combined" / "all_world.parquet"
     assert out.is_file()
     t = pq.read_table(out)
     assert t.num_rows == 100
@@ -434,7 +434,7 @@ def test_combined_parquet_has_split_column_after_split(tmp_path):
     root = _make_split_dataset(tmp_path, {"albania": 50, "andorra": 30})
     ms.make_split(root=root, seed=42)
 
-    combined = root / "combined" / "all_europe.parquet"
+    combined = root / "combined" / "all_world.parquet"
     assert combined.is_file()
     t = pq.read_table(combined, columns=["split", "country"])
     assert "split" in t.schema.names

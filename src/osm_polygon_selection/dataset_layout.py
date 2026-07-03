@@ -5,7 +5,7 @@ Public-facing layout is::
     dataset/
     ├── README.md, manifest.json, metadata.yaml       (root landing page)
     ├── per_country/<country>/{<country>.parquet, README.md}
-    ├── combined/{all_europe.parquet, README.md}
+    ├── combined/{all_world.parquet, README.md}
     ├── sample/{sample_map.jsonl, README.md}
     ├── preview/{map_preview.png, README.md}
     └── splits/{split_manifest.json}
@@ -59,9 +59,9 @@ def move_country_files(root: Path, countries: Iterable[str]) -> int:
 
 
 def move_combined(root: Path) -> bool:
-    """Move ``all_europe.parquet`` from root to ``combined/``."""
-    return _move_atomic(root / "all_europe.parquet",
-                        root / "combined" / "all_europe.parquet")
+    """Move ``all_world.parquet`` from root to ``combined/``."""
+    return _move_atomic(root / "all_world.parquet",
+                        root / "combined" / "all_world.parquet")
 
 
 def move_sample(root: Path, sample_src: Path) -> bool:

@@ -53,11 +53,11 @@ class TestMoveCountryFiles:
 
 
 class TestMoveCombined:
-    def test_moves_all_europe_parquet(self, tmp_path: Path) -> None:
+    def test_moves_all_world_parquet(self, tmp_path: Path) -> None:
         ensure_layout(tmp_path)
-        (tmp_path / "all_europe.parquet").touch()
+        (tmp_path / "all_world.parquet").touch()
         assert move_combined(tmp_path) is True
-        assert (tmp_path / "combined" / "all_europe.parquet").exists()
+        assert (tmp_path / "combined" / "all_world.parquet").exists()
 
     def test_returns_false_when_missing(self, tmp_path: Path) -> None:
         ensure_layout(tmp_path)

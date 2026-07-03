@@ -47,7 +47,7 @@ red-green, see `docs/AGENT_HANDOFF.md` for the workflow).
 It rewrote **every** per-country parquet (51 files, 10k-1.3M rows
 each) just to append a `split` column. That's ~7.4M rows round-tripped
 through `ParquetWriter.write_table()` for no good reason — the
-per-country file is never used for training (only `combined/all_europe.parquet`
+per-country file is never used for training (only `combined/all_world.parquet`
 is).
 
 ### The optimization
@@ -89,7 +89,7 @@ parquets were updated to read from the combined parquet instead:
 - `test_split_writes_split_column_to_parquet`
 
 This is a deliberate **test contract change**: per-country parquets
-no longer have a `split` column. Only `combined/all_europe.parquet`
+no longer have a `split` column. Only `combined/all_world.parquet`
 has one.
 
 ---
@@ -216,7 +216,7 @@ That's the old slow path. The fix is in commit `1edc041`.
 - **Pre-compute per-country splits once** in a manifest, then
   read them in `_write_combined_streaming()` (avoids the
   `assign_split_for_country()` call per row group).
-- **Skip `combined/all_europe.parquet` rewrite entirely** if no
+- **Skip `combined/all_world.parquet` rewrite entirely** if no
   new countries were added (already partly done by checking
   mtimes, but not optimized).
 

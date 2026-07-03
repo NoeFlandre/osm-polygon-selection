@@ -124,7 +124,7 @@ delete a test to make code "work"; fix the code.
   `bosnia-herzegovina`, `sao-tome-and-principe`).
 - Per-country folder: `per_country/<slug>/<slug>.parquet`.
 - Per-country README: `per_country/<slug>/README.md`.
-- Combined parquet: `combined/all_europe.parquet` (the name is
+- Combined parquet: `combined/all_world.parquet` (the name is
   historical; it now also includes African countries).
 - Manifest: `dataset/manifest.json` (machine-readable, every build).
 - Root README: `dataset/README.md` (human-readable, every build).
@@ -149,7 +149,7 @@ Every parquet row has exactly these 13 columns (in order):
 | pbf_date        | string       |
 | geometry_wkt    | string       |
 
-Plus the trailing `split` column on `combined/all_europe.parquet`
+Plus the trailing `split` column on `combined/all_world.parquet`
 only (`"train"` | `"val"` | `"test"`).
 
 Don't add columns without updating `schema_defs.py` and the
@@ -186,7 +186,7 @@ or split.
 
 `make_split.py` does NOT rewrite per-country parquets anymore
 (perf optimization in commit `1edc041`). Per-country parquets have
-no `split` column; only `combined/all_europe.parquet` has one.
+no `split` column; only `combined/all_world.parquet` has one.
 
 If you see a per-country parquet with a `split` column, it's from
 a pre-optimization build. The optimization dropped `make_split.py`
@@ -209,7 +209,7 @@ n_countries print is filtered to alive only (commit `e251cdb`).
 
 ### The `concatenate_me` order
 
-`combined/all_europe.parquet` is built in **manifest order**, which
+`combined/all_world.parquet` is built in **manifest order**, which
 is the alphabetical/iteration order of `processed/` subdirs. The
 `split` column assignment is per-country, deterministic from
 `(country_index, seed, n_rows)`. So row order changes if you
@@ -293,7 +293,7 @@ Wall-clock for the full rebuild on the 77-country dataset:
 
 make_split went from ~10 min to ~2.5 min in commit `1edc041`
 (skip per-country parquet rewrites — the per-country file doesn't
-need a `split` column; only `combined/all_europe.parquet` is used
+need a `split` column; only `combined/all_world.parquet` is used
 for training).
 
 Stage 0 perf for large PBFs:

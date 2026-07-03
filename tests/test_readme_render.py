@@ -91,7 +91,7 @@ class TestBuildRootReadme:
                 {"osm_id": 2, "size_bin": "small"},
                 {"osm_id": 3, "size_bin": "large"},
             ]),
-            tmp_path / "combined" / "all_europe.parquet",
+            tmp_path / "combined" / "all_world.parquet",
         )
         out = build_root_readme(_manifest([_country("a", 3)]), tmp_path)
         assert "Size-bin distribution" in out
@@ -115,7 +115,7 @@ class TestBuildRootReadme:
         rows += [{"osm_id": i, "size_bin": "medium"} for i in range(50)]
         rows += [{"osm_id": i, "size_bin": "large"} for i in range(10)]
         pq.write_table(pa.Table.from_pylist(rows),
-                       tmp_path / "combined" / "all_europe.parquet")
+                       tmp_path / "combined" / "all_world.parquet")
         out = build_root_readme(_manifest([_country("a", 160)]), tmp_path)
         # Global totals must appear (with thousands-separator formatting).
         assert "| small | 100 |" in out
@@ -162,7 +162,7 @@ class TestBuildRootReadme:
 class TestBuildFolderReadme:
     @pytest.mark.parametrize("folder,expected_phrase", [
         ("per_country", "one folder per country"),
-        ("combined", "all_europe.parquet"),
+        ("combined", "all_world.parquet"),
         ("sample", "sample_map.jsonl"),
         ("preview", "map_preview.png"),
     ])

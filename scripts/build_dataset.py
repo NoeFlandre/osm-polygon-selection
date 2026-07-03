@@ -477,7 +477,7 @@ size_categories:
     if not sample_path.is_file():
         # Fallback: the legacy /tmp location, used by sample_for_map.py.
         sample_path = Path("/tmp/sample_map.jsonl")
-    # GLOBAL size-bin distribution: derived from combined/all_europe.parquet
+    # GLOBAL size-bin distribution: derived from combined/all_world.parquet
     # (one read) so percentages reflect the entire dataset, not a sample.
     from osm_polygon_selection.sample_table import (
         compute_global_size_bin_distribution,
@@ -516,7 +516,75 @@ mountain ranges, big seas) are excluded by the size filter (see
 [Filter chain](#filter-chain) below).
 
 **Total polygons:** {total_polygons:,}
-(combined parquet: `combined/all_europe.parquet`).
+(combined parquet: `combined/all_world.parquet`).
+
+## Tag selection
+
+A polygon is kept in this dataset if and only if it satisfies two
+filters. Both are set intersections on `key=value` strings — there is
+no per-key policy and no per-tag count threshold.
+
+1. **Size filter (Stage 0).** The polygon must have area in
+   [0.1, 100] km² and be a closed way or multipolygon relation
+   (nodes and lines are dropped upstream).
+2. **Whitelist filter (Stage 2).** The polygon's `tags` list
+   (which is `["key=value", ...]`) must share at least one element
+   with the whitelist. This is `set(row["tags"]) & whitelist`,
+   evaluated on the first match only.
+
+### How the whitelist was built
+
+The whitelist is the **union of two osm-stats clustering pipelines**
+(TF-IDF and embeddings) at both the base-key level and the tag
+level. There is no intersection at any stage.
+
+**Layer 1 — base keys kept.** For each pipeline we read its
+`base_key_families.xlsx` and take the base keys labeled
+`keep = "yes"`. The whitelist keeps the union of the two
+`yes` sets — a base key survives if either pipeline labels it
+`yes`.
+
+| Pipeline    | base keys | yes | uncertain | no |
+|-------------|----------:|----:|----------:|---:|
+| TF-IDF      |       427 | 157 |        54 | 216 |
+| Embeddings  |       433 | 169 |        57 | 207 |
+| **Union**   |     —     |**236** | — | — |
+
+Of the 236 union base keys, 90 are labeled `yes` in both
+pipelines, 67 are TF-IDF-only, and 79 are embeddings-only.
+
+**Layer 2 — tags from each pipeline.** For each kept base key
+we expand to specific `key=value` strings from the
+corresponding `cluster_memberships*.csv`. Two tiers:
+
+- **Tier A** — every tag from a non-noise HDBSCAN cluster
+  (`cluster_id != -1`), always included.
+- **Tier B** — HDBSCAN noise points (`cluster_id == -1`) are
+  included only when `count_all >= 10,000`. These are
+  high-volume isolated tags that escaped clustering (e.g.
+  `landuse=forest` at ~5.9 M occurrences, `natural=wood` at
+  ~12.4 M occurrences).
+
+Each pipeline then produces its own tag set:
+
+| Pipeline    | tags |
+|-------------|-----:|
+| TF-IDF      | 17,856 |
+| Embeddings  | 19,405 |
+| **Intersection** | 15,186 |
+| **Union (final whitelist)** | **22,075** |
+
+The final whitelist is the **union of the two pipelines' tag
+sets** (TF-IDF ∪ embeddings), deduplicated via Python `set`. Of
+the 22,075 unique `key=value` strings, 15,186 appear in both
+pipelines, 2,670 are TF-IDF-only, and 4,219 are embeddings-only.
+The whitelist is loaded by Stage 2 as a Python `set[str]` for
+O(1) intersection.
+
+The full pipeline is documented in
+[`docs/whitelist_decisions.md`](https://github.com/NoeFlandre/osm-polygon-selection/blob/main/docs/whitelist_decisions.md)
+and the clustering methodology in the accompanying
+[blog post](https://noeflandre.com/posts/osm-data-analysis).
 
 ## What's in this dataset
 
@@ -604,7 +672,7 @@ JSONL.
 ## Size-bin distribution (full dataset)
 
 Counts every polygon in the **{total_polygons:,}-polygon** dataset
-by `size_bin`, computed directly from `combined/all_europe.parquet`
+by `size_bin`, computed directly from `combined/all_world.parquet`
 via `pyarrow.compute.value_counts`. Percentages are exact ratios
 over the entire dataset (not a sample).
 
@@ -838,7 +906,7 @@ def main() -> None:
     # small per-country files; for the combined file, we honor
     # the OSM_DATASET_DIR env var if set (used by the agent to
     # point at the external HDD when space is tight).
-    out_path = out_dir / "all_europe.parquet"
+    out_path = out_dir / "all_world.parquet"
     print(f"  combined: {combined.num_rows} polygons -> {out_path}")
     # Use small row groups + page indexes so the HuggingFace dataset
     # viewer can scan one row group at a time without exceeding its

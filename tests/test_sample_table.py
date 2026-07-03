@@ -167,7 +167,7 @@ class TestBuildExampleRowTable:
 class TestComputeGlobalDistribution:
     """The "global" distribution is computed from the FULL dataset,
     not from a sample. Implemented via pyarrow.compute.value_counts
-    against a per-country parquet (or combined all_europe.parquet).
+    against a per-country parquet (or combined all_world.parquet).
     """
 
     def test_returns_zero_for_missing_combined(self, tmp_path: Path) -> None:
@@ -203,7 +203,7 @@ class TestComputeGlobalDistribution:
         ]
 
     def test_prefers_combined_over_per_country(self, tmp_path: Path) -> None:
-        # If combined/all_europe.parquet exists, use it (NOT per_country).
+        # If combined/all_world.parquet exists, use it (NOT per_country).
         layout = tmp_path
         for sub in ("per_country", "combined"):
             (layout / sub).mkdir(exist_ok=True)
@@ -217,7 +217,7 @@ class TestComputeGlobalDistribution:
         )
         # combined has 2 small, 1 large
         _write_parquet(
-            layout / "combined" / "all_europe.parquet",
+            layout / "combined" / "all_world.parquet",
             [
                 {"osm_id": 1, "size_bin": "small"},
                 {"osm_id": 2, "size_bin": "small"},
