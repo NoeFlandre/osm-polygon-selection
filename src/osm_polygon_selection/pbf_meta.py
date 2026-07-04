@@ -60,6 +60,7 @@ NON_EUROPE_COUNTRIES: dict[str, str] = {
     "tanzania": "africa",
     "uganda": "africa",
     "mauritius": "africa",
+    "madagascar": "africa",
     # Southern Africa
     "angola": "africa",
     "botswana": "africa",
