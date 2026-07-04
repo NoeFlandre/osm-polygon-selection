@@ -64,6 +64,46 @@ class TestGeofabrikUrl:
                 f"https://download.geofabrik.de/south-america/{c}.html"
             )
 
+    def test_asian_country_uses_asia_region(self) -> None:
+        """Asian countries get their continent subtree URL."""
+        for c in ("afghanistan", "japan", "israel-and-palestine",
+                  "malaysia-singapore-brunei", "gcc-states"):
+            assert geofabrik_url(c) == (
+                f"https://download.geofabrik.de/asia/{c}.html"
+            )
+
+    def test_china_uses_asia_china_subpath(self) -> None:
+        """China regions are sub-PBFs under /asia/china/<province>/."""
+        for region in ("anhui", "guangdong", "sichuan", "tibet",
+                       "inner-mongolia", "hong-kong", "macau"):
+            assert geofabrik_url(f"china-{region}") == (
+                f"https://download.geofabrik.de/asia/china/{region}.html"
+            )
+
+    def test_india_uses_asia_india_subpath(self) -> None:
+        """India zones are sub-PBFs under /asia/india/."""
+        for zone in ("central-zone", "eastern-zone", "north-eastern-zone",
+                     "northern-zone", "southern-zone", "western-zone"):
+            assert geofabrik_url(f"india-{zone}") == (
+                f"https://download.geofabrik.de/asia/india/{zone}.html"
+            )
+
+    def test_indonesia_uses_asia_indonesia_subpath(self) -> None:
+        """Indonesia islands are sub-PBFs under /asia/indonesia/."""
+        for island in ("java", "kalimantan", "maluku", "nusa-tenggara",
+                       "papua", "sulawesi", "sumatra"):
+            assert geofabrik_url(f"indonesia-{island}") == (
+                f"https://download.geofabrik.de/asia/indonesia/{island}.html"
+            )
+
+    def test_japan_uses_asia_japan_subpath(self) -> None:
+        """Japan regions are sub-PBFs under /asia/japan/."""
+        for region in ("chubu", "chugoku", "hokkaido", "kansai",
+                       "kanto", "kyushu", "shikoku", "tohoku"):
+            assert geofabrik_url(f"japan-{region}") == (
+                f"https://download.geofabrik.de/asia/japan/{region}.html"
+            )
+
 
 class TestFormatPbfDate:
     def test_iso_date(self) -> None:

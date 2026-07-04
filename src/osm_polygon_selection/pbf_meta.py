@@ -95,6 +95,102 @@ NON_EUROPE_COUNTRIES: dict[str, str] = {
     "suriname": "south-america",
     "uruguay": "south-america",
     "venezuela": "south-america",
+    # Asia
+    "afghanistan": "asia",
+    "armenia": "asia",
+    "azerbaijan": "asia",
+    "bangladesh": "asia",
+    "bhutan": "asia",
+    "cambodia": "asia",
+    "east-timor": "asia",
+    "gcc-states": "asia",
+    "india": "asia",
+    "indonesia": "asia",
+    "iran": "asia",
+    "iraq": "asia",
+    "israel-and-palestine": "asia",
+    "japan": "asia",
+    "jordan": "asia",
+    "kazakhstan": "asia",
+    "kyrgyzstan": "asia",
+    "laos": "asia",
+    "lebanon": "asia",
+    "malaysia-singapore-brunei": "asia",
+    "maldives": "asia",
+    "mongolia": "asia",
+    "myanmar": "asia",
+    "nepal": "asia",
+    "north-korea": "asia",
+    "pakistan": "asia",
+    "philippines": "asia",
+    "south-korea": "asia",
+    "sri-lanka": "asia",
+    "syria": "asia",
+    "taiwan": "asia",
+    "tajikistan": "asia",
+    "thailand": "asia",
+    "turkmenistan": "asia",
+    "uzbekistan": "asia",
+    "vietnam": "asia",
+    "yemen": "asia",
+    # China (processed by province/territory to keep PBFs < 200 MB)
+    "china-anhui": "asia",
+    "china-beijing": "asia",
+    "china-chongqing": "asia",
+    "china-fujian": "asia",
+    "china-gansu": "asia",
+    "china-guangdong": "asia",
+    "china-guangxi": "asia",
+    "china-guizhou": "asia",
+    "china-hainan": "asia",
+    "china-hebei": "asia",
+    "china-heilongjiang": "asia",
+    "china-henan": "asia",
+    "china-hong-kong": "asia",
+    "china-hubei": "asia",
+    "china-hunan": "asia",
+    "china-inner-mongolia": "asia",
+    "china-jiangsu": "asia",
+    "china-jiangxi": "asia",
+    "china-jilin": "asia",
+    "china-liaoning": "asia",
+    "china-macau": "asia",
+    "china-ningxia": "asia",
+    "china-qinghai": "asia",
+    "china-shaanxi": "asia",
+    "china-shandong": "asia",
+    "china-shanghai": "asia",
+    "china-shanxi": "asia",
+    "china-sichuan": "asia",
+    "china-tianjin": "asia",
+    "china-tibet": "asia",
+    "china-xinjiang": "asia",
+    "china-yunnan": "asia",
+    "china-zhejiang": "asia",
+    # India (processed by zone)
+    "india-central-zone": "asia",
+    "india-eastern-zone": "asia",
+    "india-north-eastern-zone": "asia",
+    "india-northern-zone": "asia",
+    "india-southern-zone": "asia",
+    "india-western-zone": "asia",
+    # Indonesia (processed by island group)
+    "indonesia-java": "asia",
+    "indonesia-kalimantan": "asia",
+    "indonesia-maluku": "asia",
+    "indonesia-nusa-tenggara": "asia",
+    "indonesia-papua": "asia",
+    "indonesia-sulawesi": "asia",
+    "indonesia-sumatra": "asia",
+    # Japan (processed by region)
+    "japan-chubu": "asia",
+    "japan-chugoku": "asia",
+    "japan-hokkaido": "asia",
+    "japan-kansai": "asia",
+    "japan-kanto": "asia",
+    "japan-kyushu": "asia",
+    "japan-shikoku": "asia",
+    "japan-tohoku": "asia",
 }
 
 
@@ -105,7 +201,23 @@ def geofabrik_url(country: str) -> str:
     (e.g. ``/europe/``, ``/africa/``). Most of our countries
     live under ``/europe/``; the few exceptions are listed in
     ``NON_EUROPE_COUNTRIES``.
+
+    Some large countries (brazil, china, india, indonesia, japan)
+    are split into sub-regions to keep each PBF manageable. The
+    slug convention is ``<country>-<region>`` and the URL pattern
+    is ``/asia/<country>/<region>`` (or ``/south-america/brazil/``).
     """
+    # Sub-region slugs (country-region) get a nested path.
+    # Add new big-country sub-PBFs here as we process them.
+    sub_region_parents = {"brazil", "china", "india", "indonesia", "japan"}
+    for parent in sub_region_parents:
+        if country.startswith(f"{parent}-"):
+            region = country[len(parent) + 1:]
+            continent = NON_EUROPE_COUNTRIES.get(country, "asia")
+            return (
+                f"https://download.geofabrik.de/{continent}/"
+                f"{parent}/{region}.html"
+            )
     region = NON_EUROPE_COUNTRIES.get(country, "europe")
     return f"https://download.geofabrik.de/{region}/{country}.html"
 
