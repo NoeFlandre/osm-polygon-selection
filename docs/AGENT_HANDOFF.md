@@ -126,6 +126,21 @@ delete a test to make code "work"; fix the code.
 - Per-country README: `per_country/<slug>/README.md`.
 - Combined parquet: `combined/all_world.parquet` (the name is
   historical; it now also includes African countries).
+- **Large countries MUST be broken down by Geofabrik region, never
+  processed as a single whole-country PBF.** Empirically, anything
+  ~600 MB or larger (brazil 2.0 GB, india, china, russia, canada,
+  usa, australia...) times out the Stage 0 wall-clock cap (90 min)
+  before reaching the end of the PBF, even after the WAL resume
+  fast-forward. Geofabrik exposes sub-regions under the country
+  directory (`/south-america/brazil/`, `/asia/india/`,
+  `/asia/indonesia/`, etc.) — process each sub-region as its own
+  slug prefixed with the country name (e.g. `brazil-norte`,
+  `brazil-nordeste`, `brazil-sudeste`, `brazil-sul`,
+  `brazil-centro-oeste`). Add the new slug to
+  `NON_EUROPE_COUNTRIES` in `src/osm_polygon_selection/pbf_meta.py`
+  and to a `test_*_uses_*_region` case in
+  `tests/test_pbf_meta.py`. Stage 0/2/3 + build work unchanged
+  on these regional slugs.
 - Manifest: `dataset/manifest.json` (machine-readable, every build).
 - Root README: `dataset/README.md` (human-readable, every build).
 

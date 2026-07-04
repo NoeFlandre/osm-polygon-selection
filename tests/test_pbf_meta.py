@@ -55,6 +55,15 @@ class TestGeofabrikUrl:
             "https://download.geofabrik.de/africa/mayotte.html"
         )
 
+    def test_south_american_country_uses_south_america_region(self) -> None:
+        """South American countries get their continent subtree URL."""
+        for c in ("argentina", "bolivia", "brazil", "chile", "colombia",
+                  "ecuador", "guyana", "paraguay", "peru", "suriname",
+                  "uruguay", "venezuela"):
+            assert geofabrik_url(c) == (
+                f"https://download.geofabrik.de/south-america/{c}.html"
+            )
+
 
 class TestFormatPbfDate:
     def test_iso_date(self) -> None:

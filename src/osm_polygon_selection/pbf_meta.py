@@ -77,6 +77,24 @@ NON_EUROPE_COUNTRIES: dict[str, str] = {
     "sao-tome-and-principe": "africa",
     "saint-helena-ascension-and-tristan-da-cunha": "africa",
     "mayotte": "africa",
+    # South America
+    "argentina": "south-america",
+    "bolivia": "south-america",
+    "brazil": "south-america",
+    "brazil-norte": "south-america",
+    "brazil-centro-oeste": "south-america",
+    "brazil-nordeste": "south-america",
+    "brazil-sudeste": "south-america",
+    "brazil-sul": "south-america",
+    "chile": "south-america",
+    "colombia": "south-america",
+    "ecuador": "south-america",
+    "guyana": "south-america",
+    "paraguay": "south-america",
+    "peru": "south-america",
+    "suriname": "south-america",
+    "uruguay": "south-america",
+    "venezuela": "south-america",
 }
 
 
