@@ -6,9 +6,10 @@ A curated set of OpenStreetMap (OSM) polygons, classified by
 by country, and published on Hugging Face.
 
 Built with TDD (red-green-modular), optimized end-to-end, and
-actively expanding — currently covers **78 countries** (49 European
-+ 29 African), **7,490,239 polygons** across `combined/all_europe.parquet`
-(zstd, ~6.0 GB) and 77 per-country parquets.
+actively expanding — currently covers **284 countries and
+sub-country regions** (every continent), **14,197,463 polygons**
+across `combined/all_world.parquet` (zstd, ~12.6 GB) and 284
+per-country parquets.
 
 ---
 

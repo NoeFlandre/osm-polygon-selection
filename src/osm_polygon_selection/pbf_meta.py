@@ -270,6 +270,31 @@ NON_EUROPE_COUNTRIES: dict[str, str] = {
     "us-west-virginia": "north-america",
     "us-wisconsin": "north-america",
     "us-wyoming": "north-america",
+    # Canada provinces (under /north-america/canada/<province>/)
+    "canada-alberta": "north-america",
+    "canada-british-columbia": "north-america",
+    "canada-manitoba": "north-america",
+    "canada-new-brunswick": "north-america",
+    "canada-newfoundland-and-labrador": "north-america",
+    "canada-northwest-territories": "north-america",
+    "canada-nova-scotia": "north-america",
+    "canada-nunavut": "north-america",
+    "canada-ontario": "north-america",
+    "canada-prince-edward-island": "north-america",
+    "canada-quebec": "north-america",
+    "canada-saskatchewan": "north-america",
+    "canada-yukon": "north-america",
+    # Russia federal districts (under /russia/<district>/)
+    "russia-central-fed-district": "russia",
+    "russia-crimean-fed-district": "russia",
+    "russia-far-eastern-fed-district": "russia",
+    "russia-kaliningrad": "russia",
+    "russia-north-caucasus-fed-district": "russia",
+    "russia-northwestern-fed-district": "russia",
+    "russia-siberian-fed-district": "russia",
+    "russia-south-fed-district": "russia",
+    "russia-ural-fed-district": "russia",
+    "russia-volga-fed-district": "russia",
 }
 
 
@@ -296,7 +321,7 @@ def geofabrik_url(country: str) -> str:
     ``/north-america/us/<state>`` (US states nest under ``us/``).
     """
     # Sub-region slugs (country-region) get a nested path.
-    sub_region_parents = {"brazil", "china", "india", "indonesia", "japan"}
+    sub_region_parents = {"brazil", "china", "india", "indonesia", "japan", "canada"}
     for parent in sub_region_parents:
         if country.startswith(f"{parent}-"):
             region = country[len(parent) + 1:]
@@ -305,6 +330,12 @@ def geofabrik_url(country: str) -> str:
                 f"https://download.geofabrik.de/{continent}/"
                 f"{parent}/{region}.html"
             )
+    # Russia IS its own top-level folder on Geofabrik
+    # (https://download.geofabrik.de/russia/), so sub-PBFs nest
+    # directly under /russia/, not /russia/russia/.
+    if country.startswith("russia-"):
+        region = country[len("russia-"):]
+        return f"https://download.geofabrik.de/russia/{region}.html"
     if country.startswith("us-"):
         # US states live under /north-america/us/<state>/, but
         # Geofabrik's own US sub-regions (us-midwest etc.) are

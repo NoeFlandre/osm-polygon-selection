@@ -664,10 +664,10 @@ reproject it directly without re-deriving from centroid+area.
 
 ![polygon distribution across the dataset's countries](preview/map_preview.png)
 
-A spatial sample of ~4 k representative polygons (one per grid
-cell per country, power-law capped at 200 per country) rendered
-on a folium basemap. See [`sample/`](./sample/) for the source
-JSONL.
+A spatial sample of representative polygons (one per grid cell
+per country, power-law capped at 200 per country, floor 8 so
+every country is visible) rendered on a folium basemap. See
+[`sample/`](./sample/) for the source JSONL.
 
 ## Size-bin distribution (full dataset)
 
@@ -891,50 +891,38 @@ def main() -> None:
         })
         print(f"  {country}: 0 polygons (no 03 file, PBF present, recorded)")
     print("\nBuilding combined parquet...")
-    all_tables = []
+    # Streaming write: append each per-country table to the
+    # combined file via ParquetWriter. Avoids holding the full
+    # ~14M-row concat in memory (which OOMs on this host).
+    # Use the schema of the first per-country file, then never
+    # read all the tables into a list.
+    out_path = out_dir / "all_world.parquet"
+    schema = pq.read_schema(out_dir / f"{countries_done[0]['country']}.parquet")
+    writer = pq.ParquetWriter(
+        out_path,
+        schema,
+        compression="zstd",
+        compression_level=1,
+        write_page_index=True,
+    )
+    total_rows = 0
     for c in countries_done:
-        # Skip zero-yield countries: they have no per-country parquet file.
         if c["n_polygons"] == 0:
             continue
         table = pq.read_table(out_dir / f"{c['country']}.parquet")
-        all_tables.append(table)
-    combined = pa.concat_tables(all_tables, promote_options="default")
-    # Write the combined parquet to the same directory as the
-    # per-country ones. If geometry is included, this can be 4-5GB
-    # and won't fit on the internal SSD (228GB, often near full).
-    # The data/ directory on the internal drive is fine for the
-    # small per-country files; for the combined file, we honor
-    # the OSM_DATASET_DIR env var if set (used by the agent to
-    # point at the external HDD when space is tight).
-    out_path = out_dir / "all_world.parquet"
-    print(f"  combined: {combined.num_rows} polygons -> {out_path}")
-    # Use small row groups + page indexes so the HuggingFace dataset
-    # viewer can scan one row group at a time without exceeding its
-    # 300 MB scan limit. With ~7.3M rows and ~50k rows per group,
-    # that's ~150 groups, each ~50-60 MB (well under the 300 MB
-    # viewer scan limit). Page indexes let the viewer jump directly
-    # to specific value ranges in a column (e.g. country='france').
-    #
-    # zstd level 1 gives ~36% better compression than snappy on
-    # this data shape (9.4 GB -> 6.0 GB), at ~12% slower encode
-    # time. Saves ~3.4 GB on disk + 36% on HF upload time.
-    pq.write_table(
-        combined,
-        out_path,
-        compression="zstd",
-        compression_level=1,
-        row_group_size=50_000,
-        write_page_index=True,
-    )
+        writer.write_table(table)
+        total_rows += table.num_rows
+    writer.close()
+    print(f"  combined: {total_rows} polygons -> {out_path}")
 
-    write_readme(out_dir, countries_done, combined.num_rows)
+    write_readme(out_dir, countries_done, total_rows)
     write_metadata_yaml(out_dir)
 
     manifest = {
         "version": PIPELINE_VERSION,
         "git_sha": git_sha(),
         "built_at": datetime.now().isoformat(),
-        "total_polygons": combined.num_rows,
+        "total_polygons": total_rows,
         "n_countries": sum(1 for c in countries_done if c["n_polygons"] > 0),
         "countries": countries_done,
         "schema": [f.name for f in build_schema()],

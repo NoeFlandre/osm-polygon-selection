@@ -61,6 +61,10 @@ def main() -> int:
         "--dry-run", action="store_true",
         help="List files that would be uploaded without uploading",
     )
+    parser.add_argument(
+        "--commit-message", default="Update dataset",
+        help="Single commit message for the entire folder upload",
+    )
     args = parser.parse_args()
 
     api = HfApi(token=_get_token())
@@ -77,17 +81,20 @@ def main() -> int:
             print(f"  {size_mb:>10.1f} MB  {rel}")
         return 0
 
-    for p in files:
-        rel = str(p.relative_to(args.root))
-        size_mb = p.stat().st_size / 1_048_576
-        print(f"  uploading {size_mb:>9.1f} MB  {rel}", flush=True)
-        api.upload_file(
-            path_or_fileobj=str(p),
-            path_in_repo=rel,
-            repo_id=args.repo_id,
-            repo_type="dataset",
-        )
-    print(f"done: {len(files)} files uploaded to {args.repo_id}")
+    # Batch upload: a single commit for the whole folder, instead
+    # of one commit per file (which the HF commit API rate-limits
+    # at 128/hour). upload_folder handles multi-GB directories
+    # internally with chunked resumable uploads, so a ~14 GB
+    # dataset fits in a single commit.
+    print(f"uploading {len(files)} files in 1 commit...", flush=True)
+    api.upload_folder(
+        folder_path=str(args.root),
+        repo_id=args.repo_id,
+        repo_type="dataset",
+        commit_message=args.commit_message,
+        ignore_patterns=["*.tmp", "*.wal", "*.pyc", "__pycache__/*"],
+    )
+    print(f"done: {len(files)} files uploaded to {args.repo_id} (1 commit)")
     return 0
 
 

@@ -127,6 +127,22 @@ class TestGeofabrikUrl:
                 f"https://download.geofabrik.de/north-america/us/{state}.html"
             )
 
+    def test_canada_province_uses_north_america_canada_subpath(self) -> None:
+        """Canadian provinces are sub-PBFs under /north-america/canada/."""
+        for province in ("ontario", "quebec", "british-columbia",
+                         "alberta", "newfoundland-and-labrador"):
+            assert geofabrik_url(f"canada-{province}") == (
+                f"https://download.geofabrik.de/north-america/canada/{province}.html"
+            )
+
+    def test_russia_district_uses_russia_subpath(self) -> None:
+        """Russian federal districts are sub-PBFs under /russia/."""
+        for district in ("central-fed-district", "kaliningrad",
+                         "volga-fed-district"):
+            assert geofabrik_url(f"russia-{district}") == (
+                f"https://download.geofabrik.de/russia/{district}.html"
+            )
+
 
 class TestFormatPbfDate:
     def test_iso_date(self) -> None:

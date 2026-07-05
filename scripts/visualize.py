@@ -33,12 +33,11 @@ COUNTRY_COLORS = [
 ]
 
 # Default --limit. Set high enough to cover the current sample
-# (4418 polygons, growing) plus a safety margin. The previous
-# default of 2000 truncated to ~10 alphabetically-first countries,
-# making Spain, Portugal, Turkey, Greece, Sweden, Norway, Finland,
-# Ukraine, etc. invisible on the rendered map. 5000 covers the
-# current sample with margin; bump if the sample grows.
-MAX_DEFAULT_LIMIT = 5000
+# (~16k polygons across 284 countries). With 5000 many small
+# countries (south sudan, marshall-islands, samoa, etc.) got
+# truncated and disappeared from the map. 25000 leaves headroom
+# for future dataset growth without truncating any country.
+MAX_DEFAULT_LIMIT = 25000
 
 
 def color_for_country(country: str | None, country_to_color: dict[str, str]) -> str:
@@ -163,40 +162,12 @@ def main() -> None:
             popup=folium.Popup(popup, max_width=300),
         ).add_to(fmap)
 
-    # Build the legend HTML (we'll inject it after folium save, since
-    # folium 0.20's get_root().add_child(Element) silently drops the
-    # element from the rendered output).
-    legend_html: str = ""
-    if country_to_color:
-        legend_html = (
-            "<div style='position:fixed; bottom:20px; left:20px; "
-            "background:white; padding:8px; border:1px solid grey; "
-            "z-index:1000; font-size:11px; max-width:280px;'>"
-            "<b>Sampled for visualization (not exhaustive)</b><br>"
-            f"Showing ~{len(rows_buffer)} representative polygons "
-            "(~1 per K&times;K grid cell per country, power-law "
-            "weighted). See combined/all_world.parquet for the full "
-            "dataset.<br>"
-            "<br>"
-            "<b>Country</b><br>"
-        )
-        for cc, col in sorted(country_to_color.items()):
-            legend_html = legend_html + f"<span style='color:{col}'>■</span> {cc}<br>"
-        legend_html = legend_html + "</div>"
+    # No on-map legend: with 100+ countries the legend box would
+    # dominate the rendered PNG. The dataset's README is the
+    # authoritative per-country listing.
 
     args.out.parent.mkdir(parents=True, exist_ok=True)
     fmap.save(str(args.out))
-
-    # Inject the legend into the saved HTML by appending it just
-    # before </body>. This is more reliable than folium's
-    # add_child for plain HTML overlays in newer folium versions.
-    if legend_html:
-        with args.out.open() as f:
-            html = f.read()
-        if "</body>" in html:
-            html = html.replace("</body>", legend_html + "</body>", 1)
-            with args.out.open("w") as f:
-                f.write(html)
 
     print(f"plotted {len(rows_buffer)} polygons ({len(country_to_color)} countries) to {args.out}")
 
