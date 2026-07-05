@@ -104,6 +104,29 @@ class TestGeofabrikUrl:
                 f"https://download.geofabrik.de/asia/japan/{region}.html"
             )
 
+    def test_oceania_uses_australia_oceania_region(self) -> None:
+        """Oceania countries get the /australia-oceania/ subtree URL."""
+        for c in ("australia", "new-zealand", "fiji", "samoa",
+                  "papua-new-guinea", "cook-islands"):
+            assert geofabrik_url(c) == (
+                f"https://download.geofabrik.de/australia-oceania/{c}.html"
+            )
+
+    def test_north_american_country_uses_north_america_region(self) -> None:
+        """North American countries get the /north-america/ subtree URL."""
+        for c in ("greenland", "mexico", "us-pacific"):
+            assert geofabrik_url(c) == (
+                f"https://download.geofabrik.de/north-america/{c}.html"
+            )
+
+    def test_us_state_uses_north_america_us_subpath(self) -> None:
+        """US states are sub-PBFs under /north-america/us/<state>."""
+        for state in ("california", "texas", "new-york",
+                      "district-of-columbia"):
+            assert geofabrik_url(f"us-{state}") == (
+                f"https://download.geofabrik.de/north-america/us/{state}.html"
+            )
+
 
 class TestFormatPbfDate:
     def test_iso_date(self) -> None:

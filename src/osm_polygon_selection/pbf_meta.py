@@ -191,7 +191,93 @@ NON_EUROPE_COUNTRIES: dict[str, str] = {
     "japan-kyushu": "asia",
     "japan-shikoku": "asia",
     "japan-tohoku": "asia",
+    # Oceania / Australia
+    "american-oceania": "australia-oceania",
+    "cook-islands": "australia-oceania",
+    "fiji": "australia-oceania",
+    "ile-de-clipperton": "australia-oceania",
+    "kiribati": "australia-oceania",
+    "marshall-islands": "australia-oceania",
+    "micronesia": "australia-oceania",
+    "nauru": "australia-oceania",
+    "new-caledonia": "australia-oceania",
+    "new-zealand": "australia-oceania",
+    "niue": "australia-oceania",
+    "palau": "australia-oceania",
+    "papua-new-guinea": "australia-oceania",
+    "pitcairn-islands": "australia-oceania",
+    "polynesie-francaise": "australia-oceania",
+    "samoa": "australia-oceania",
+    "solomon-islands": "australia-oceania",
+    "tokelau": "australia-oceania",
+    "tonga": "australia-oceania",
+    "tuvalu": "australia-oceania",
+    "vanuatu": "australia-oceania",
+    "wallis-et-futuna": "australia-oceania",
+    "australia": "australia-oceania",
+    # North America
+    "greenland": "north-america",
+    "mexico": "north-america",
+    # US states (under /north-america/us/<state>/)
+    "us-alabama": "north-america",
+    "us-alaska": "north-america",
+    "us-arizona": "north-america",
+    "us-arkansas": "north-america",
+    "us-california": "north-america",
+    "us-colorado": "north-america",
+    "us-connecticut": "north-america",
+    "us-delaware": "north-america",
+    "us-district-of-columbia": "north-america",
+    "us-florida": "north-america",
+    "us-georgia": "north-america",
+    "us-hawaii": "north-america",
+    "us-idaho": "north-america",
+    "us-illinois": "north-america",
+    "us-indiana": "north-america",
+    "us-iowa": "north-america",
+    "us-kansas": "north-america",
+    "us-kentucky": "north-america",
+    "us-louisiana": "north-america",
+    "us-maine": "north-america",
+    "us-maryland": "north-america",
+    "us-massachusetts": "north-america",
+    "us-michigan": "north-america",
+    "us-minnesota": "north-america",
+    "us-mississippi": "north-america",
+    "us-missouri": "north-america",
+    "us-montana": "north-america",
+    "us-nebraska": "north-america",
+    "us-nevada": "north-america",
+    "us-new-hampshire": "north-america",
+    "us-new-jersey": "north-america",
+    "us-new-mexico": "north-america",
+    "us-new-york": "north-america",
+    "us-north-carolina": "north-america",
+    "us-north-dakota": "north-america",
+    "us-ohio": "north-america",
+    "us-oklahoma": "north-america",
+    "us-oregon": "north-america",
+    "us-pennsylvania": "north-america",
+    "us-rhode-island": "north-america",
+    "us-south-carolina": "north-america",
+    "us-south-dakota": "north-america",
+    "us-tennessee": "north-america",
+    "us-texas": "north-america",
+    "us-utah": "north-america",
+    "us-vermont": "north-america",
+    "us-virginia": "north-america",
+    "us-washington": "north-america",
+    "us-west-virginia": "north-america",
+    "us-wisconsin": "north-america",
+    "us-wyoming": "north-america",
 }
+
+
+# Geofabrik's own US sub-regions (midwest / northeast / pacific /
+# south / west) live as flat /north-america/us-<region>-latest.osm.pbf
+# files, NOT under /us/<state>/. We must not treat these as state
+# slugs and accidentally nest them.
+_US_GEOFABRIK_REGIONS = {"midwest", "northeast", "pacific", "south", "west"}
 
 
 def geofabrik_url(country: str) -> str:
@@ -202,13 +288,14 @@ def geofabrik_url(country: str) -> str:
     live under ``/europe/``; the few exceptions are listed in
     ``NON_EUROPE_COUNTRIES``.
 
-    Some large countries (brazil, china, india, indonesia, japan)
-    are split into sub-regions to keep each PBF manageable. The
-    slug convention is ``<country>-<region>`` and the URL pattern
-    is ``/asia/<country>/<region>`` (or ``/south-america/brazil/``).
+    Some large countries (brazil, china, india, indonesia, japan,
+    us) are split into sub-regions to keep each PBF manageable.
+    The slug convention is ``<country>-<region>`` and the URL
+    pattern is ``/asia/<country>/<region>``,
+    ``/south-america/<country>/<region>``, or
+    ``/north-america/us/<state>`` (US states nest under ``us/``).
     """
     # Sub-region slugs (country-region) get a nested path.
-    # Add new big-country sub-PBFs here as we process them.
     sub_region_parents = {"brazil", "china", "india", "indonesia", "japan"}
     for parent in sub_region_parents:
         if country.startswith(f"{parent}-"):
@@ -218,6 +305,18 @@ def geofabrik_url(country: str) -> str:
                 f"https://download.geofabrik.de/{continent}/"
                 f"{parent}/{region}.html"
             )
+    if country.startswith("us-"):
+        # US states live under /north-america/us/<state>/, but
+        # Geofabrik's own US sub-regions (us-midwest etc.) are
+        # flat at /north-america/us-<region>.osm.pbf.
+        rest = country[len("us-"):]
+        if rest in _US_GEOFABRIK_REGIONS:
+            continent = NON_EUROPE_COUNTRIES.get(country, "north-america")
+            return (
+                f"https://download.geofabrik.de/{continent}/{country}.html"
+            )
+        continent = NON_EUROPE_COUNTRIES.get(country, "north-america")
+        return f"https://download.geofabrik.de/{continent}/us/{rest}.html"
     region = NON_EUROPE_COUNTRIES.get(country, "europe")
     return f"https://download.geofabrik.de/{region}/{country}.html"
 
