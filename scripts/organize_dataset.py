@@ -172,6 +172,43 @@ which is a static PNG rendered via headless Chromium.
 [Back to the dataset root](../README.md)
 """
 
+_SPLITS_README_TEMPLATE = """# splits/
+
+**4 files**: pre-filtered per-split parquet files plus the
+split manifest.
+
+| file | rows | size |
+|------|-----:|-----:|
+| `train.parquet` | 11,358,587 | ~10.2 GB |
+| `val.parquet`   |  1,419,548 | ~1.3 GB |
+| `test.parquet`  |  1,419,328 | ~1.3 GB |
+| `split_manifest.json` | — | <100 KB |
+
+Each split file is the entire subset of rows from
+[`../combined/all_world.parquet`](../combined/) filtered to one
+of `train` / `val` / `test`, with the now-uniform `split`
+column dropped. The same 13-column schema (excluding `split`)
+applies.
+
+The split is **stratified by country** with a global seed of
+**42**. Per-country counts are recorded in
+`split_manifest.json`; the totals above match that manifest
+exactly. To regenerate with a different seed:
+
+```bash
+uv run python scripts/make_split.py --seed 7
+uv run python scripts/split_parquets.py
+```
+
+For a single-country study it's usually more efficient to load
+the per-country parquet from
+[`../per_country/<country>/<country>.parquet`](../per_country/)
+and filter by `split` in pyarrow, since that file is typically
+5-100x smaller than the full combined split.
+
+[Back to the dataset root](../README.md)
+"""
+
 _PREVIEW_README_TEMPLATE = """# preview/
 
 **1 file**: `map_preview.png` — a 1600×1100 PNG (~1 MB) showing the
@@ -232,31 +269,33 @@ district, island group, zone):
 
 | unit type | count | examples |
 |-----------|------:|----------|
-| Sovereign country | ~180 | france, ghana, japan, peru, australia |
-| Sub-country region | ~100 | brazil-sudeste, china-beijing, japan-kanto, india-central-zone, us-texas, canada-ontario |
-| Multi-country bundle | ~5 | gcc-states, ireland-and-northern-ireland, senegal-and-gambia |
+| Sovereign country | ~170 | france, ghana, japan, peru, australia, brazil, argentina |
+| Sub-country region | ~130 | brazil-sudeste, china-beijing, japan-kanto, india-central-zone, us-texas, canada-ontario, russia-siberian-fed-district |
+| Multi-country bundle | ~10 | gcc-states, ireland-and-northern-ireland, senegal-and-gambia, haiti-and-domrep, malaysia-singapore-brunei, israel-and-palestine |
 
 Total: **{n_countries} geographic units** across all 6 inhabited
-continents plus Oceania. The **284** (or whatever current count)
-is **not** the count of sovereign states (which is ~195 per the
-UN); it's the count of discrete Geofabrik PBF regions we
-processed.
+continents plus Oceania. The **{n_countries}** is **not** the count
+of sovereign states (which is ~195 per the UN); it's the count of
+discrete Geofabrik PBF regions we processed.
 
 ## Layout
 
-This dataset is split across four subfolders so you can pull only what
+This dataset is split across five subfolders so you can pull only what
 you need:
 
 | folder | what's inside | typical size |
 |--------|---------------|--------------|
-| [`per_country/`](./per_country/) | one folder per country with `<country>.parquet` + `README.md` | ~25 GB total, <1 MB per small country |
-| [`combined/`](./combined/) | `all_world.parquet` — every polygon in one file | ~13 GB |
-| [`sample/`](./sample/) | `sample_map.jsonl` — ~17k representative polygons for quick viz | ~3 MB |
+| [`per_country/`](./per_country/) | one folder per country with `<country>.parquet` + `README.md` | ~28 GB total, <1 MB per small country |
+| [`combined/`](./combined/) | `all_world.parquet` — every polygon in one file | ~14 GB |
+| [`splits/`](./splits/) | `train.parquet`, `val.parquet`, `test.parquet` — pre-filtered split parquets (no `split` column needed) | ~13 GB total |
+| [`sample/`](./sample/) | `sample_map.jsonl` — ~18k representative polygons for quick viz | ~3 MB |
 | [`preview/`](./preview/) | `map_preview.png` — static map thumbnail | ~1 MB |
 
 Start with `sample/` or `preview/` for a quick look. Pull
 `per_country/<country>/<country>.parquet` for a single-country
-study. Use `combined/all_world.parquet` for cross-country work.
+study. Use `combined/all_world.parquet` for cross-country work
+or `splits/<train/val/test>.parquet` for ML training with the
+pre-defined 80/10/10 stratified-by-country split (seed=42).
 
 ## What's in this dataset
 
@@ -1139,7 +1178,9 @@ def write_folder_readmes(root: Path, manifest: dict) -> int:
     (root / "combined" / "README.md").write_text(combined_readme)
     (root / "sample" / "README.md").write_text(sample_readme)
     (root / "preview" / "README.md").write_text(preview_readme)
-    return 4
+    splits_readme = _SPLITS_README_TEMPLATE  # no parameters
+    (root / "splits" / "README.md").write_text(splits_readme)
+    return 5
 
 
 def _schema_table_from_manifest(manifest: dict) -> str:

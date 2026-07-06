@@ -295,6 +295,26 @@ NON_EUROPE_COUNTRIES: dict[str, str] = {
     "russia-south-fed-district": "russia",
     "russia-ural-fed-district": "russia",
     "russia-volga-fed-district": "russia",
+    # Central America + Caribbean (under /central-america/)
+    "bahamas": "central-america",
+    "belize": "central-america",
+    "costa-rica": "central-america",
+    "cuba": "central-america",
+    "el-salvador": "central-america",
+    "guatemala": "central-america",
+    "haiti-and-domrep": "central-america",
+    "honduras": "central-america",
+    "jamaica": "central-america",
+    "nicaragua": "central-america",
+    "panama": "central-america",
+    # Missing US state
+    "us-california": "north-america",
+    "us-alaska": "north-america",
+    "us-hawaii": "north-america",
+    "us-oregon": "north-america",
+    # US territories (under /north-america/us/<territory>/)
+    "us-puerto-rico": "north-america",
+    "us-virgin-islands": "north-america",
 }
 
 

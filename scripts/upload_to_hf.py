@@ -1,11 +1,17 @@
 """Upload the reorganized dataset to HuggingFace.
 
 Mirrors ``dataset/`` to the NoeFlandre/osm-polygon-selection repo.
-Files are added in order: README, manifest, metadata, splits,
-per-country parquets, combined parquet, sample, preview.
+
+The script first reconciles the HF repo with the local state:
+any files that exist on HF but not locally are deleted (so
+stale files from earlier per-country uploads at the repo root
+get cleaned up). Then it does a single ``upload_folder`` commit
+for the rest. ``upload_folder`` batches all file uploads into
+a single commit, which sidesteps the HF per-commit rate limit
+(128 commits/hour).
 
 The combined parquet is uploaded last (it's the largest single
-file at ~6GB compressed). If the upload is interrupted, the
+file at ~13GB compressed). If the upload is interrupted, the
 per-country parquets are already in place and the dataset is
 usable from there.
 
@@ -23,7 +29,7 @@ import argparse
 import os
 from pathlib import Path
 
-from huggingface_hub import HfApi
+from huggingface_hub import CommitOperationDelete, HfApi
 
 
 DEFAULT_REPO_ID = "NoeFlandre/osm-polygon-selection"
@@ -53,6 +59,46 @@ def _list_files(root: Path) -> list[Path]:
     )
 
 
+def _hf_files(api: HfApi, repo_id: str) -> set[str]:
+    """Return the set of file paths currently on HF for the dataset."""
+    try:
+        items = api.list_repo_files(repo_id=repo_id, repo_type="dataset")
+    except Exception:
+        return set()
+    return set(items)
+
+
+def _delete_stale(
+    api: HfApi, repo_id: str, local_files: set[str], commit_message: str
+) -> int:
+    """Delete HF files that don't exist locally. Returns count deleted.
+
+    Important to call this BEFORE the bulk upload so the deleted
+    files don't end up re-uploaded on a retry. Returns 0 if
+    nothing to delete.
+    """
+    hf_files = _hf_files(api, repo_id)
+    stale = sorted(hf_files - local_files)
+    if not stale:
+        return 0
+    print(f"deleting {len(stale)} stale files from HF...", flush=True)
+    # delete_files takes a single commit; group into chunks of
+    # 100 to keep individual commit sizes manageable.
+    for i in range(0, len(stale), 100):
+        chunk = stale[i : i + 100]
+        from huggingface_hub import CommitOperationDelete
+        operations = [
+            CommitOperationDelete(path_in_repo=p) for p in chunk
+        ]
+        api.create_commit(
+            repo_id=repo_id,
+            repo_type="dataset",
+            operations=operations,
+            commit_message=f"{commit_message} (cleanup {i+1}-{i+len(chunk)})",
+        )
+    return len(stale)
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--root", type=Path, default=DEFAULT_ROOT)
@@ -65,6 +111,10 @@ def main() -> int:
         "--commit-message", default="Update dataset",
         help="Single commit message for the entire folder upload",
     )
+    parser.add_argument(
+        "--skip-cleanup", action="store_true",
+        help="Don't delete stale files from HF before uploading",
+    )
     args = parser.parse_args()
 
     api = HfApi(token=_get_token())
@@ -72,29 +122,46 @@ def main() -> int:
     total_bytes = sum(p.stat().st_size for p in files)
     print(f"root: {args.root}")
     print(f"repo: {args.repo_id}")
-    print(f"files: {len(files)} ({total_bytes / 1e9:.2f} GB total)")
+    print(f"local files: {len(files)} ({total_bytes / 1e9:.2f} GB total)")
+
+    local_rel = {str(p.relative_to(args.root)) for p in files}
 
     if args.dry_run:
         for p in files:
             size_mb = p.stat().st_size / 1_048_576
             rel = p.relative_to(args.root)
             print(f"  {size_mb:>10.1f} MB  {rel}")
+        hf_files = _hf_files(api, args.repo_id)
+        stale = sorted(hf_files - local_rel)
+        if stale:
+            print(f"\nstale files on HF (would be deleted): {len(stale)}")
+            for s in stale[:30]:
+                print(f"  - {s}")
+            if len(stale) > 30:
+                print(f"  ... and {len(stale) - 30} more")
         return 0
 
-    # Batch upload: a single commit for the whole folder, instead
-    # of one commit per file (which the HF commit API rate-limits
-    # at 128/hour). upload_folder handles multi-GB directories
-    # internally with chunked resumable uploads, so a ~14 GB
-    # dataset fits in a single commit.
+    # Step 1: delete stale files from HF (e.g. all_europe.parquet,
+    # per-country parquets left over from the old "upload files
+    # individually" code path that wrote them to the repo root).
+    n_deleted = 0
+    if not args.skip_cleanup:
+        n_deleted = _delete_stale(api, args.repo_id, local_rel, args.commit_message)
+        print(f"deleted {n_deleted} stale files")
+
+    # Step 2: batch upload in a single commit.
     print(f"uploading {len(files)} files in 1 commit...", flush=True)
     api.upload_folder(
         folder_path=str(args.root),
         repo_id=args.repo_id,
         repo_type="dataset",
         commit_message=args.commit_message,
-        ignore_patterns=["*.tmp", "*.wal", "*.pyc", "__pycache__/*"],
+        ignore_patterns=[
+            "*.tmp", "*.wal", "*.pyc", "__pycache__/*",
+            ".DS_Store",
+        ],
     )
-    print(f"done: {len(files)} files uploaded to {args.repo_id} (1 commit)")
+    print(f"done: {len(files)} files uploaded, {n_deleted} stale deleted")
     return 0
 
 
