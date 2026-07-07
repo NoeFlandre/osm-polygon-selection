@@ -74,6 +74,16 @@ the same TDD loop:
      --deselect tests/stages/test_extract_perf.py::TestWallClockCap::test_wall_clock_cap_stops_clean
    ```
 
+   Optional static checks:
+   ```bash
+   uv run mypy src scripts                       # type-check the package + scripts
+   uv run python -m coverage run -m pytest tests/ --deselect ... \
+     && uv run python -m coverage report         # coverage report
+   ```
+
+   These are the canonical verification commands — use them after
+   every refactor / refactor microstep.
+
 4. **BENCH** (if it's a perf change): measure wall-clock before/after
    on the real dataset.
 
