@@ -59,6 +59,7 @@ from osm_polygon_selection.readme_render import (
     build_folder_readme,
     write_metadata_yaml,
 )
+from osm_polygon_selection.sample_table import build_example_row_table
 
 
 DEFAULT_ROOT = Path("/Volumes/Seagate M3/osm-polygon-selection/dataset")
@@ -1015,101 +1016,6 @@ def _git_sha() -> str:
 # ---------------------------------------------------------------------------
 
 
-def ensure_layout(root: Path) -> None:
-    """Create the per_country/, combined/, sample/, preview/ tree.
-
-    Idempotent: existing dirs are left alone.
-    """
-    for sub in ("per_country", "combined", "sample", "preview"):
-        (root / sub).mkdir(parents=True, exist_ok=True)
-
-
-def _move(src: Path, dst: Path) -> None:
-    """Move ``src`` to ``dst`` (no-op if already at dst)."""
-    if src.resolve() == dst.resolve():
-        return
-    if dst.exists():
-        # Already in place — nothing to do.
-        return
-    if not src.exists():
-        # Nothing to move.
-        return
-    dst.parent.mkdir(parents=True, exist_ok=True)
-    shutil.move(str(src), str(dst))
-
-
-def cleanup_loose_root_files(root: Path) -> list[str]:
-    """Remove any leftover ``*.parquet`` or ``*.png`` files at the dataset root.
-
-    Older builds wrote ``map_preview.png`` directly under ``dataset/``.
-    After this layout pass, that file should live in ``preview/`` and
-    parquets should live in their country folders. This cleans up
-    any leftover files the explicit move steps missed.
-
-    Returns the list of filenames that were removed.
-    """
-    removed: list[str] = []
-    for pattern in ("*.parquet", "*.png"):
-        for p in root.glob(pattern):
-            # Only files directly at the root, not nested ones.
-            if p.parent.resolve() != root.resolve():
-                continue
-            p.unlink()
-            removed.append(p.name)
-    return removed
-
-
-def move_country_files(root: Path, countries: Iterable[str]) -> int:
-    """Move each per-country parquet from root to per_country/<c>/<c>.parquet.
-
-    Returns the count of files actually moved.
-    """
-    moved = 0
-    for c in countries:
-        src = root / f"{c}.parquet"
-        dst = root / "per_country" / c / f"{c}.parquet"
-        if src.exists() and not dst.exists():
-            dst.parent.mkdir(parents=True, exist_ok=True)
-            shutil.move(str(src), str(dst))
-            moved += 1
-    return moved
-
-
-def move_combined(root: Path) -> bool:
-    """Move all_world.parquet from root to combined/. Returns True if moved."""
-    src = root / "all_world.parquet"
-    dst = root / "combined" / "all_world.parquet"
-    if src.exists() and not dst.exists():
-        dst.parent.mkdir(parents=True, exist_ok=True)
-        shutil.move(str(src), str(dst))
-        return True
-    return False
-
-
-def move_sample(root: Path, sample_src: Path) -> bool:
-    """Copy sample_map.jsonl from ``sample_src`` into sample/. Returns True if copied."""
-    dst = root / "sample" / "sample_map.jsonl"
-    if dst.exists():
-        return False
-    if not sample_src.exists():
-        return False
-    dst.parent.mkdir(parents=True, exist_ok=True)
-    shutil.copy2(str(sample_src), str(dst))
-    return True
-
-
-def move_preview(root: Path, preview_src: Path) -> bool:
-    """Copy map_preview.png from ``preview_src`` into preview/. Returns True if copied."""
-    dst = root / "preview" / "map_preview.png"
-    if dst.exists():
-        return False
-    if not preview_src.exists():
-        return False
-    dst.parent.mkdir(parents=True, exist_ok=True)
-    shutil.copy2(str(preview_src), str(dst))
-    return True
-
-
 def write_country_readmes(root: Path, manifest: dict) -> int:
     """Write one README.md per country into per_country/<c>/README.md.
 
@@ -1240,22 +1146,10 @@ def update_root_readme(root: Path) -> None:
     """Rewrite dataset/README.md as the public landing page.
 
     Uses the manifest's country list and `build_country_table` from
-    `build_dataset.py` to render the per-country summary (no
-    duplicated logic). Also imports the helpers
-    ``compute_sample_size_bin_distribution``, ``pick_sample_row``,
-    and the size-bin/example-row table builders from ``build_dataset.py``.
+    `osm_polygon_selection.country_table` to render the per-country
+    summary. The size-bin and example-row tables come from
+    `osm_polygon_selection.sample_table`. No dynamic imports.
     """
-    # Import the build_country_table function from build_dataset.py so
-    # we don't reimplement the table format.
-    import importlib.util
-    bd_path = Path(__file__).resolve().parent / "build_dataset.py"
-    spec = importlib.util.spec_from_file_location("build_dataset", bd_path)
-    if spec is None or spec.loader is None:
-        raise ImportError(f"could not load {bd_path}")
-    build_dataset = importlib.util.module_from_spec(spec)
-    sys.modules["build_dataset"] = build_dataset
-    spec.loader.exec_module(build_dataset)
-
     manifest = json.loads((root / "manifest.json").read_text())
 
     # Status line.
@@ -1273,7 +1167,7 @@ def update_root_readme(root: Path) -> None:
         )
 
     # Country table — uses the shared build_country_table.
-    country_table = build_dataset.build_country_table(manifest["countries"])
+    country_table = build_country_table(manifest["countries"])
 
     schema_table = _schema_table_from_manifest(manifest)
 
@@ -1283,14 +1177,9 @@ def update_root_readme(root: Path) -> None:
     if not sample_path.is_file():
         sample_path = Path("/tmp/sample_map.jsonl")
 
-    # Temporarily point DATASET_DIR at our root for the example-row
-    # parquet lookup (the parquet path lives under per_country/).
-    saved_dir = build_dataset.DATASET_DIR
-    build_dataset.DATASET_DIR = root
-    try:
-        example_row_table = build_dataset._build_example_row_table(sample_path)
-    finally:
-        build_dataset.DATASET_DIR = saved_dir
+    # The package's build_example_row_table takes a fallback_dir so
+    # the row lookup uses our root instead of the global DATASET_DIR.
+    example_row_table = build_example_row_table(sample_path, fallback_dir=root)
 
     # GLOBAL size-bin distribution: from combined/all_world.parquet so the
     # table reflects every polygon, not a sample.
