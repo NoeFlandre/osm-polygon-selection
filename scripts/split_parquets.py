@@ -12,8 +12,10 @@ import sys
 from pathlib import Path
 
 from osm_polygon_selection.dataset_build.split_parquets import write_split_parquets
+from osm_polygon_selection.runtime_config import RuntimeConfig
 
-DEFAULT_ROOT = Path("/Volumes/Seagate M3/osm-polygon-selection/dataset")
+_DEFAULT_CONFIG = RuntimeConfig.from_env()
+DEFAULT_ROOT = _DEFAULT_CONFIG.dataset_root
 DEFAULT_SOURCE = DEFAULT_ROOT / "combined" / "all_world.parquet"
 DEFAULT_OUT = DEFAULT_ROOT / "splits"
 
