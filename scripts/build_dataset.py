@@ -37,8 +37,12 @@ from pathlib import Path
 import pyarrow as pa
 import pyarrow.parquet as pq
 
-HDD = Path("/Volumes/Seagate M3/osm-polygon-selection")
-PROC = HDD / "processed"
+from osm_polygon_selection.runtime_config import RuntimeConfig
+
+# Data + dataset paths from RuntimeConfig (honors $OSM_DATA_ROOT / $OSM_DATASET_DIR).
+_RUNTIME_CONFIG = RuntimeConfig.from_env()
+HDD = _RUNTIME_CONFIG.data_root
+PROC = _RUNTIME_CONFIG.processed_root
 PIPELINE_VERSION = "v0.1.0"
 
 # Geometry encoding: wkt (default, text), wkb (binary, ~50% smaller),
@@ -89,12 +93,19 @@ def _load_whitelist() -> set[str]:
     """Load the 22,075-tag whitelist used by Stage 2.
 
     Cached at module level so we only hit the disk once per build.
+    The whitelist location comes from RuntimeConfig (which honors
+    $OSM_DATA_ROOT).
     """
     global _WHITELIST_CACHE
     if _WHITELIST_CACHE is None:
-        with (HDD / "whitelist.json").open() as f:
+        with _RUNTIME_CONFIG.whitelist_path.open() as f:
             _WHITELIST_CACHE = set(json.load(f))
     return _WHITELIST_CACHE
+
+
+def _load_whitelist_module_path() -> Path:
+    """Expose the configured whitelist path (for test inspection)."""
+    return _RUNTIME_CONFIG.whitelist_path
 
 
 _WHITELIST_CACHE: set[str] | None = None
@@ -738,7 +749,7 @@ def main() -> None:
                 extract_status=status,
                 pbf_date=pbf_date,
                 geometry_encoding=GEOMETRY_ENCODING,
-                whitelist_path=HDD / "whitelist.json",
+                whitelist_path=_RUNTIME_CONFIG.whitelist_path,
             )
         except Exception as e:
             print(f"  {country}: streaming writer failed ({e}); falling back to per-row path")

@@ -109,3 +109,47 @@ def test_missing_source_raises(tmp_path: Path) -> None:
 
     with pytest.raises(FileNotFoundError):
         write_split_parquets(missing, out_dir)
+
+
+def test_writers_closed_on_exception(tmp_path: Path, monkeypatch) -> None:
+    """Regression: writers must be closed even when row-group processing fails.
+
+    We monkey-patch pq.ParquetFile.read_row_group to raise after the
+    first call. The function should propagate the exception AND have
+    closed every opened writer.
+    """
+    import pyarrow.parquet as pq
+
+    source = _make_source(tmp_path)
+    out_dir = tmp_path / "out"
+    out_dir.mkdir()
+
+    original_writer_init = pq.ParquetWriter.__init__
+    original_writer_close = pq.ParquetWriter.close
+
+    close_calls: list[str] = []
+
+    def tracking_close(self):  # type: ignore[no-untyped-def]
+        close_calls.append("close")
+        return original_writer_close(self)
+
+    def boom_init(self, path, schema, **kwargs):  # type: ignore[no-untyped-def]
+        # Allow normal initialization.
+        return original_writer_init(self, path, schema, **kwargs)
+
+    def boom_read_row_group(self, idx):  # type: ignore[no-untyped-def]
+        raise RuntimeError("simulated mid-loop failure")
+
+    monkeypatch.setattr(pq.ParquetWriter, "__init__", boom_init)
+    monkeypatch.setattr(pq.ParquetWriter, "close", tracking_close)
+    monkeypatch.setattr(
+        pq.ParquetFile, "read_row_group", boom_read_row_group
+    )
+
+    with pytest.raises(RuntimeError, match="simulated mid-loop failure"):
+        write_split_parquets(source, out_dir)
+
+    # All 3 writers (train/val/test) must have been closed.
+    assert len(close_calls) == 3, (
+        f"expected 3 close() calls (one per writer); got {len(close_calls)}"
+    )

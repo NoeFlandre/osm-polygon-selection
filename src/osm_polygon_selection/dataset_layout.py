@@ -22,7 +22,13 @@ from collections.abc import Iterable
 from pathlib import Path
 
 # Subfolders every dataset directory must contain.
-SUBFOLDERS: tuple[str, ...] = ("per_country", "combined", "sample", "preview")
+SUBFOLDERS: tuple[str, ...] = (
+    "per_country",
+    "combined",
+    "sample",
+    "preview",
+    "splits",
+)
 
 # Root-level files that should NOT be deleted by cleanup_loose_root_files.
 ROOT_KEPT_FILES: frozenset[str] = frozenset(
@@ -84,21 +90,24 @@ def move_preview(root: Path, preview_src: Path) -> bool:
     return True
 
 
-def cleanup_loose_root_files(root: Path) -> int:
-    """Delete loose ``*.parquet`` files from the dataset root.
+def cleanup_loose_root_files(root: Path) -> list[str]:
+    """Delete loose root-level ``*.parquet`` and ``*.png`` files.
 
     These are leftovers from a flat layout that have been moved
-    into subfolders. Root-level non-parquet files (README, manifest,
-    metadata) are preserved.
+    into subfolders. Only files DIRECTLY at ``root`` are deleted;
+    nested files are left alone. Root-level non-parquet, non-png
+    files (README, manifest, metadata, etc.) are preserved via
+    :data:`ROOT_KEPT_FILES`.
 
-    Returns the number of deleted files.
+    Returns the list of filenames that were removed.
     """
-    deleted = 0
+    removed: list[str] = []
+    suffixes = (".parquet", ".png")
     for p in root.iterdir():
-        if p.is_file() and p.suffix == ".parquet":
+        if p.is_file() and p.suffix in suffixes and p.name not in ROOT_KEPT_FILES:
             p.unlink()
-            deleted += 1
-    return deleted
+            removed.append(p.name)
+    return removed
 
 
 def human_size(num_bytes: int) -> str:

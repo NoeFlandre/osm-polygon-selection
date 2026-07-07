@@ -32,12 +32,9 @@ from __future__ import annotations
 
 import argparse
 import json
-import shutil
 import subprocess
-import sys
 from datetime import datetime
 from pathlib import Path
-from typing import Iterable
 
 from osm_polygon_selection.country_table import build_country_table
 from osm_polygon_selection.dataset_layout import (
@@ -49,9 +46,7 @@ from osm_polygon_selection.dataset_layout import (
     move_preview,
     move_sample,
 )
-from osm_polygon_selection.git_meta import git_short_sha
-from osm_polygon_selection.paths import dataset_root
-from osm_polygon_selection.pbf_meta import geofabrik_url, pbf_date_for
+from osm_polygon_selection.pbf_meta import geofabrik_url
 from osm_polygon_selection.pbf_meta import NON_EUROPE_COUNTRIES as _NON_EUROPE
 from osm_polygon_selection.readme_render import (
     PIPELINE_VERSION_DEFAULT,
@@ -61,8 +56,6 @@ from osm_polygon_selection.readme_render import (
 )
 from osm_polygon_selection.sample_table import build_example_row_table
 from osm_polygon_selection.country_notes import (
-    COUNTRY_NOTES,
-    REGIONAL_SUB_PBFS,
     country_note,
     country_source_description,
 )
@@ -762,9 +755,8 @@ def main(
     # (e.g. an old `map_preview.png` from a previous build_dataset
     # pass that pre-dates this layout script).
     removed = cleanup_loose_root_files(root)
-    if removed:
-        summary["loose_root_files_removed"] = removed
-        summary["steps"].append("cleanup_loose_root_files")
+    summary["loose_root_files_removed"] = removed
+    summary["steps"].append("cleanup_loose_root_files")
 
     return summary
 

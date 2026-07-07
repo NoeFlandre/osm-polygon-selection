@@ -24,13 +24,13 @@ from osm_polygon_selection.dataset_layout import (
 class TestEnsureLayout:
     def test_creates_required_subfolders(self, tmp_path: Path) -> None:
         ensure_layout(tmp_path)
-        for sub in ("per_country", "combined", "sample", "preview"):
+        for sub in ("per_country", "combined", "sample", "preview", "splits"):
             assert (tmp_path / sub).is_dir()
 
     def test_idempotent(self, tmp_path: Path) -> None:
         ensure_layout(tmp_path)
         ensure_layout(tmp_path)  # second call no-op
-        for sub in ("per_country", "combined", "sample", "preview"):
+        for sub in ("per_country", "combined", "sample", "preview", "splits"):
             assert (tmp_path / sub).is_dir()
 
 
@@ -89,9 +89,18 @@ class TestCleanupLooseRootFiles:
             (tmp_path / f"{c}.parquet").touch()
             (tmp_path / "per_country" / c).mkdir(parents=True, exist_ok=True)
         deleted = cleanup_loose_root_files(tmp_path)
-        assert deleted == 2
+        assert sorted(deleted) == ["albania.parquet", "andorra.parquet"]
         for c in ("albania", "andorra"):
             assert not (tmp_path / f"{c}.parquet").exists()
+
+    def test_deletes_loose_root_png(self, tmp_path: Path) -> None:
+        """Regression: the old package helper only deleted *.parquet and
+        left stale map_preview.png at the root."""
+        ensure_layout(tmp_path)
+        (tmp_path / "map_preview.png").write_bytes(b"\x89PNG\r\n\x1a\n")
+        deleted = cleanup_loose_root_files(tmp_path)
+        assert deleted == ["map_preview.png"]
+        assert not (tmp_path / "map_preview.png").exists()
 
     def test_does_not_delete_kept_files(self, tmp_path: Path) -> None:
         ensure_layout(tmp_path)
@@ -99,10 +108,20 @@ class TestCleanupLooseRootFiles:
         (tmp_path / "manifest.json").touch()
         (tmp_path / "metadata.yaml").touch()
         deleted = cleanup_loose_root_files(tmp_path)
-        assert deleted == 0
+        assert deleted == []
         assert (tmp_path / "README.md").exists()
         assert (tmp_path / "manifest.json").exists()
         assert (tmp_path / "metadata.yaml").exists()
+
+    def test_does_not_delete_nested_png(self, tmp_path: Path) -> None:
+        """Only files DIRECTLY at the root are deleted, not nested ones."""
+        ensure_layout(tmp_path)
+        nested_png = tmp_path / "per_country" / "albania" / "thumbnail.png"
+        nested_png.parent.mkdir(parents=True, exist_ok=True)
+        nested_png.write_bytes(b"\x89PNG\r\n\x1a\n")
+        deleted = cleanup_loose_root_files(tmp_path)
+        assert deleted == []
+        assert nested_png.exists()
 
 
 class TestHumanSize:

@@ -70,17 +70,21 @@ def write_split_parquets(source: Path, out_dir: Path) -> dict[str, int]:
         for split in SPLITS
     }
     counts: dict[str, int] = {split: 0 for split in SPLITS}
-
-    for rg_idx in range(pf.num_row_groups):
-        rg = pf.read_row_group(rg_idx)
-        for split in SPLITS:
-            sub = rg.filter(equal(rg["split"], split))
-            n = sub.num_rows
-            if n > 0:
-                writers[split].write_table(sub.drop(["split"]))
-                counts[split] += n
-
-    for w in writers.values():
-        w.close()
+    try:
+        for rg_idx in range(pf.num_row_groups):
+            rg = pf.read_row_group(rg_idx)
+            for split in SPLITS:
+                sub = rg.filter(equal(rg["split"], split))
+                n = sub.num_rows
+                if n > 0:
+                    writers[split].write_table(sub.drop(["split"]))
+                    counts[split] += n
+    finally:
+        # Always close every writer, even if processing failed mid-loop.
+        # ParquetWriter needs an explicit close() to flush the footer
+        # and release the file handle; otherwise the partial output
+        # file is left on disk and unreadable.
+        for w in writers.values():
+            w.close()
 
     return counts
