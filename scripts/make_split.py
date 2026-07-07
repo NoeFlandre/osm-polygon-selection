@@ -42,8 +42,10 @@ import numpy as np
 import pyarrow as pa
 import pyarrow.parquet as pq
 
-# Default dataset root (external HDD).
-DEFAULT_ROOT = Path("/Volumes/Seagate M3/osm-polygon-selection/dataset")
+from osm_polygon_selection.runtime_config import RuntimeConfig
+
+# Default dataset root (from RuntimeConfig; honors $OSM_DATA_ROOT).
+DEFAULT_ROOT = RuntimeConfig.from_env().dataset_root
 
 # Default split ratios. Must sum to 1.0; validated by tests.
 DEFAULT_RATIOS: dict[str, float] = {"train": 0.8, "val": 0.1, "test": 0.1}
