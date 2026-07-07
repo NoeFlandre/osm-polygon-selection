@@ -54,6 +54,8 @@ from osm_polygon_selection.git_meta import git_sha
 from osm_polygon_selection.extract_status import extract_status as _extract_status
 from osm_polygon_selection.paths import dataset_root
 from osm_polygon_selection.pbf_meta import NON_EUROPE_COUNTRIES
+from osm_polygon_selection.dataset_build.records import pbf_date_for as _pbf_date_for
+from osm_polygon_selection.dataset_build.records import row_to_record as _row_to_record
 
 DATASET_DIR = dataset_root()  # honors $OSM_DATASET_DIR
 from osm_polygon_selection.schema_defs import (
@@ -117,51 +119,24 @@ def _compute_matched_tag(row: dict) -> str:
 
 
 def row_to_record(row: dict, country: str, status: str, pbf_date: str) -> dict | None:
-    """Convert one JSONL row + metadata into a dataset record.
+    """Thin wrapper around the package implementation.
 
-    Each row keeps the polygon geometry (per OSM_POLYGON_GEOMETRY
-    env var) plus centroid + area + tags. The geometry column is
-    named "geometry_wkt" (text) or "geometry_wkb" (binary).
-
-    The `matched_tag` column captures the whitelist tag that kept
-    this polygon. For countries whose 03_classified.jsonl was built
-    before this column existed, we compute it at build time from
-    the row's tags against the whitelist (no re-running Stage 2).
+    Bridges the script's module-level state (whitelist cache,
+    geometry encoding env var) into the pure package function.
     """
-    try:
-        c = row.get("centroid", [None, None])
-        rec = {
-            "osm_id": int(row["osm_id"]),
-            "osm_type": str(row.get("osm_type", "")),
-            "centroid_lon": float(c[0]) if c and len(c) > 0 else None,
-            "centroid_lat": float(c[1]) if c and len(c) > 1 else None,
-            "area_km2": float(row.get("area_km2", 0.0)),
-            "tags": list(row.get("tags", [])),
-            "matched_tag": _compute_matched_tag(row),
-            "continent": str(row.get("continent", "unknown")),
-            "size_bin": str(row.get("size_bin", "small")),
-            "country": country,
-            "extract_status": status,
-            "pbf_date": pbf_date,
-        }
-        geom = _encode_geometry(row)
-        if GEOMETRY_ENCODING == "wkt":
-            rec["geometry_wkt"] = geom
-        elif GEOMETRY_ENCODING == "wkb":
-            rec["geometry_wkb"] = geom
-        return rec
-    except (KeyError, TypeError, ValueError) as e:
-        print(f"  skipping malformed row in {country}: {e}", file=sys.stderr)
-        return None
+    return _row_to_record(
+        row,
+        country=country,
+        status=status,
+        pbf_date=pbf_date,
+        geometry_encoding=GEOMETRY_ENCODING,
+        whitelist=_load_whitelist(),
+    )
 
 
 def pbf_date_for(country: str) -> str:
-    """Get the date of the PBF file from its mtime."""
-    pbf = HDD / "raw" / f"{country}-latest.osm.pbf"
-    if not pbf.exists():
-        return "unknown"
-    mtime = pbf.stat().st_mtime
-    return datetime.fromtimestamp(mtime).strftime("%Y-%m-%d")
+    """Thin wrapper around the package implementation."""
+    return _pbf_date_for(country, raw_root=HDD / "raw")
 
 
 def write_metadata_yaml(out_dir: Path) -> None:
@@ -312,7 +287,7 @@ def _build_example_row_table(sample_path: Path) -> str:
     # no tags list, etc.). To show a complete row in the README we
     # cross-reference the per-country parquet for the picked row's
     # osm_id to fill in the missing columns.
-    full_row = _fetch_full_row_from_parquet(out_dir=None, sample_row=row)  # type: ignore[arg-type]
+    full_row = _fetch_full_row_from_parquet(out_dir=None, sample_row=row)
 
     if full_row is None:
         # Fall back to the sample-only columns.
@@ -731,7 +706,7 @@ def main() -> None:
     # countries. Per-region subdirectories inside a country (e.g.
     # processed/france/alsace/ from regional processing) are
     # NOT countries — they are subsets of the parent country.
-    countries_done = []
+    countries_done: list[dict[str, object]] = []
     for country_dir in sorted(PROC.iterdir()):
         if not country_dir.is_dir():
             continue
@@ -747,7 +722,7 @@ def main() -> None:
         status = extract_status(country)
         pbf_date = pbf_date_for(country)
 
-        rows = []
+        rows: list[dict] = []
         # Fast path: stream the JSONL through the optimized writer
         # (O(chunk_size) memory, vectorized matched_tag backfill).
         # Falls back to the per-row Python path only if the writer
@@ -923,7 +898,7 @@ def main() -> None:
         "git_sha": git_sha(),
         "built_at": datetime.now().isoformat(),
         "total_polygons": total_rows,
-        "n_countries": sum(1 for c in countries_done if c["n_polygons"] > 0),
+        "n_countries": sum(1 for c in countries_done if bool(c["n_polygons"])),
         "countries": countries_done,
         "schema": [f.name for f in build_schema()],
         "filters": {

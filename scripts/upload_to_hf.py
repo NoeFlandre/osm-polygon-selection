@@ -31,9 +31,11 @@ from pathlib import Path
 
 from huggingface_hub import CommitOperationDelete, HfApi
 
+from osm_polygon_selection.runtime_config import RuntimeConfig
+
 
 DEFAULT_REPO_ID = "NoeFlandre/osm-polygon-selection"
-DEFAULT_ROOT = Path("/Volumes/Seagate M3/osm-polygon-selection/dataset")
+DEFAULT_ROOT = RuntimeConfig.from_env().dataset_root
 
 
 def _get_token() -> str:

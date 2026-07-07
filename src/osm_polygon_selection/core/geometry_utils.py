@@ -69,10 +69,13 @@ def approx_area_km2_lonlat(geom_lonlat: BaseGeometry) -> float:
     deg2_area = 0.0
     try:
         if geom_lonlat.geom_type == "Polygon":
-            rings = [geom_lonlat.exterior, *geom_lonlat.interiors]
+            rings = [
+                geom_lonlat.exterior,  # type: ignore[attr-defined]
+                *geom_lonlat.interiors,  # type: ignore[attr-defined]
+            ]
         elif geom_lonlat.geom_type == "MultiPolygon":
             rings = []
-            for poly in geom_lonlat.geoms:
+            for poly in geom_lonlat.geoms:  # type: ignore[attr-defined]
                 rings.append(poly.exterior)
                 rings.extend(poly.interiors)
         else:

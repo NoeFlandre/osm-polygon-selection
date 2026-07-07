@@ -1,10 +1,15 @@
 """Stratified train/val/test split for the published OSM polygon dataset.
 
-Adds a ``split`` column (string, one of ``"train"`` / ``"val"`` /
-``"test"``) to every per-country parquet in
-``dataset/per_country/<country>/<country>.parquet`` and rebuilds the
-combined ``dataset/combined/all_world.parquet`` to include the new
-column.
+Rebuilds ``dataset/combined/all_world.parquet`` with a ``split`` column
+(string, one of ``"train"`` / ``"val"`` / ``"test"``) appended.
+
+**Per-country parquets are NOT rewritten.** They keep their original
+schema (no ``split`` column). The split is only materialized in the
+combined parquet (and in ``dataset/splits/{train,val,test}.parquet``
+written by ``scripts/split_parquets.py``). Skipping the per-country
+rewrite is a deliberate perf optimization pinned by
+``tests/test_make_split.py::test_per_country_parquets_not_rewritten_after_split``
+and ``..._have_no_split_column_after_split``.
 
 Stratification is **by country**: each country gets its rows
 independently assigned to train/val/test using a single global RNG
@@ -12,10 +17,11 @@ seeded once and offset per country. The default ratios are 80/10/10.
 
 Output:
 
-- per-country parquets are rewritten in place with the new column
-  appended (small row groups + page indexes for HF viewer compat).
 - combined ``dataset/combined/all_world.parquet`` is rewritten with
-  the same small row groups.
+  the ``split`` column appended (small row groups + page indexes for
+  HF viewer compat).
+- per-country parquets in ``dataset/per_country/<country>/`` are
+  unchanged.
 - ``dataset/splits/split_manifest.json`` is written with the seed,
   ratios, stratify_by, total counts, and per-country counts.
 
@@ -36,8 +42,10 @@ import numpy as np
 import pyarrow as pa
 import pyarrow.parquet as pq
 
-# Default dataset root (external HDD).
-DEFAULT_ROOT = Path("/Volumes/Seagate M3/osm-polygon-selection/dataset")
+from osm_polygon_selection.runtime_config import RuntimeConfig
+
+# Default dataset root (from RuntimeConfig; honors $OSM_DATA_ROOT).
+DEFAULT_ROOT = RuntimeConfig.from_env().dataset_root
 
 # Default split ratios. Must sum to 1.0; validated by tests.
 DEFAULT_RATIOS: dict[str, float] = {"train": 0.8, "val": 0.1, "test": 0.1}

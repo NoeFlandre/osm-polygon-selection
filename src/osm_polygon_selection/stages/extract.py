@@ -210,7 +210,7 @@ def _record_from_wkt(
     # (~8x faster than iterating per-vertex in Python).
     try:
         import shapely as _shapely
-        n_vertices = _shapely.get_num_coordinates(geom)
+        n_vertices = int(_shapely.get_num_coordinates(geom))
     except Exception:
         n_vertices = 0
     if n_vertices > MAX_VERTICES:
@@ -372,10 +372,10 @@ def extract(
 
     if deadline is not None:
         old_handler = signal.signal(signal.SIGALRM, _alarm_handler)
-        # type: ignore[arg-type] - mypy doesn't narrow None here
+        assert max_seconds is not None  # mypy: deadline implies max_seconds
         signal.setitimer(
             signal.ITIMER_REAL,
-            max_seconds,  # type: ignore[arg-type]
+            max_seconds,
         )
     WAL_BATCH = 10_000  # flush WAL every N writes (~10k IDs = ~100KB buffered)
 
