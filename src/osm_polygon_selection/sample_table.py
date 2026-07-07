@@ -22,6 +22,8 @@ import pyarrow as pa
 import pyarrow.compute as pc
 import pyarrow.parquet as pq
 
+from osm_polygon_selection.pyarrow_compat import value_counts
+
 # Stable bin order (small < medium < large).
 SIZE_BIN_ORDER: tuple[str, ...] = ("small", "medium", "large")
 
@@ -67,7 +69,7 @@ def _aggregate_size_bin_column(table_or_column: pa.ChunkedArray) -> Counter[str]
     Skips rows with ``None`` values; for parquet schemas that don't
     have a ``size_bin`` column, callers should check the schema first.
     """
-    vc = pc.value_counts(table_or_column)
+    vc = value_counts(table_or_column)
     out: Counter[str] = Counter()
     try:
         values = vc.field("values").to_pylist()

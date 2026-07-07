@@ -338,14 +338,14 @@ def write_jsonl_to_parquet(
         # snappy at only ~12% slower encode time. For 7M-row
         # dataset, this is ~5GB snappy -> ~3.2GB zstd, saving both
         # disk space and HF upload time.
-        write_kwargs: dict = {
+        write_kwargs_tmp: dict = {
             "compression": compression,
             "row_group_size": chunk_size,
             "write_page_index": True,
         }
         if compression == "zstd" and compression_level is not None:
-            write_kwargs["compression_level"] = compression_level
-        pq.write_table(transformed, tmp_path, **write_kwargs)
+            write_kwargs_tmp["compression_level"] = compression_level
+        pq.write_table(transformed, tmp_path, **write_kwargs_tmp)
         os.replace(tmp_path, parquet_path)
     except Exception:
         if Path(tmp_path).is_file():
@@ -448,7 +448,8 @@ def _split_centroid(centroid_col: pa.Array, idx: int) -> pa.Array:
     Python pass over the array.
     """
     import pyarrow.compute as pc
-    return pc.cast(pc.list_element(centroid_col, idx), pa.float64())
+    from osm_polygon_selection.pyarrow_compat import list_element
+    return pc.cast(list_element(centroid_col, idx), pa.float64())
 
 
 def _maybe_backfill_matched_tag_pa(

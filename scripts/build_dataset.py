@@ -287,7 +287,7 @@ def _build_example_row_table(sample_path: Path) -> str:
     # no tags list, etc.). To show a complete row in the README we
     # cross-reference the per-country parquet for the picked row's
     # osm_id to fill in the missing columns.
-    full_row = _fetch_full_row_from_parquet(out_dir=None, sample_row=row)  # type: ignore[arg-type]
+    full_row = _fetch_full_row_from_parquet(out_dir=None, sample_row=row)
 
     if full_row is None:
         # Fall back to the sample-only columns.
@@ -706,7 +706,7 @@ def main() -> None:
     # countries. Per-region subdirectories inside a country (e.g.
     # processed/france/alsace/ from regional processing) are
     # NOT countries — they are subsets of the parent country.
-    countries_done = []
+    countries_done: list[dict[str, object]] = []
     for country_dir in sorted(PROC.iterdir()):
         if not country_dir.is_dir():
             continue
@@ -722,7 +722,7 @@ def main() -> None:
         status = extract_status(country)
         pbf_date = pbf_date_for(country)
 
-        rows = []
+        rows: list[dict] = []
         # Fast path: stream the JSONL through the optimized writer
         # (O(chunk_size) memory, vectorized matched_tag backfill).
         # Falls back to the per-row Python path only if the writer
@@ -898,7 +898,7 @@ def main() -> None:
         "git_sha": git_sha(),
         "built_at": datetime.now().isoformat(),
         "total_polygons": total_rows,
-        "n_countries": sum(1 for c in countries_done if c["n_polygons"] > 0),
+        "n_countries": sum(1 for c in countries_done if bool(c["n_polygons"])),
         "countries": countries_done,
         "schema": [f.name for f in build_schema()],
         "filters": {

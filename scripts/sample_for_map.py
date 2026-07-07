@@ -50,23 +50,11 @@ from pathlib import Path
 import numpy as np
 import pyarrow.parquet as pq
 
-# Make the package importable so we can use the canonical
-# dataset_root() helper, which honors OSM_DATASET_DIR with a
-# sane sibling-of-repo default.
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
-try:
-    from osm_polygon_selection.paths import dataset_root
-except Exception:
-    # Fallback if the package isn't on the path; matches the
-    # legacy default (legacy "data/dataset" under the repo).
-    def dataset_root():
-        env = os.environ.get("OSM_DATASET_DIR")
-        if env:
-            return Path(env)
-        return Path(__file__).resolve().parent.parent / "data" / "dataset"
+from osm_polygon_selection.paths import dataset_root
+from osm_polygon_selection.runtime_config import RuntimeConfig
 
 
-PROCESSED_ROOT = Path("/Volumes/Seagate M3/osm-polygon-selection/processed")
+PROCESSED_ROOT = RuntimeConfig.from_env().processed_root
 DATASET_ROOT = dataset_root()
 OUT_PATH = Path("/tmp/sample_map.jsonl")
 

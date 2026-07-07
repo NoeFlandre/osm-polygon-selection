@@ -96,6 +96,7 @@ def vectorized_compute_matched_tags(
     import numpy as np
     import pyarrow as pa
     import pyarrow.compute as pc
+    from osm_polygon_selection.pyarrow_compat import is_in as _is_in
 
     wl = load_whitelist(whitelist_path)
     wl_set = frozenset(wl)
@@ -111,7 +112,7 @@ def vectorized_compute_matched_tags(
     for chunk in chunks:
         # chunk is list<string>. Flatten the strings, run is_in.
         flat_strs = chunk.flatten()
-        flat_mask = pc.is_in(flat_strs, value_set=wl_array)
+        flat_mask = _is_in(flat_strs, wl_array)
         offsets = chunk.offsets.to_numpy()
         flat_np = np.asarray(flat_mask)  # bool array, len = total tags
         flat_strs_np = np.asarray(flat_strs)

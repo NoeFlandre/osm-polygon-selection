@@ -17,8 +17,9 @@ from pathlib import Path
 from typing import Final
 
 import pyarrow as pa
-import pyarrow.compute as pc
 import pyarrow.parquet as pq
+
+from osm_polygon_selection.pyarrow_compat import equal
 
 __all__ = ["write_split_parquets"]
 
@@ -73,7 +74,7 @@ def write_split_parquets(source: Path, out_dir: Path) -> dict[str, int]:
     for rg_idx in range(pf.num_row_groups):
         rg = pf.read_row_group(rg_idx)
         for split in SPLITS:
-            sub = rg.filter(pc.equal(rg["split"], split))
+            sub = rg.filter(equal(rg["split"], split))
             n = sub.num_rows
             if n > 0:
                 writers[split].write_table(sub.drop(["split"]))
