@@ -21,6 +21,7 @@ from osm_polygon_selection.dataset_split.config import (
     validate_ratios,
 )
 from osm_polygon_selection.dataset_split.manifest import (
+    SplitManifest,
     build_split_manifest,
     read_dataset_manifest,
     write_split_manifest,
@@ -51,7 +52,7 @@ def make_split(
     root: Path = DEFAULT_ROOT,
     seed: int = DEFAULT_SEED,
     ratios: dict[str, float] | None = None,
-) -> dict:
+) -> SplitManifest:
     """Run the full split pipeline. Returns the manifest dict.
 
     The split is deterministic from ``(seed, country_index, n_rows)``.
