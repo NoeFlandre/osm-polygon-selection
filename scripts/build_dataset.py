@@ -60,6 +60,11 @@ from osm_polygon_selection.paths import dataset_root
 from osm_polygon_selection.pbf_meta import NON_EUROPE_COUNTRIES
 from osm_polygon_selection.dataset_build.records import pbf_date_for as _pbf_date_for
 from osm_polygon_selection.dataset_build.records import row_to_record as _row_to_record
+from osm_polygon_selection.dataset_build.countries import (  # noqa: F401
+    ALL_REGIONAL,
+    REGIONAL_CHILDREN,
+    is_regional_child,
+)
 
 DATASET_DIR = dataset_root()  # honors $OSM_DATASET_DIR
 from osm_polygon_selection.schema_defs import (
@@ -807,65 +812,13 @@ def main() -> None:
     # aquitaine for france) — those are subsets of their parent
     # country, not independent countries.
     raw_dir = HDD / "raw"
-    # Countries that have a parent PBF in raw/ but are processed via
-    # regional sub-PBFs. Add new ones here as we go.
-    REGIONAL_CHILDREN = {
-        "france": {
-            "alsace", "aquitaine", "auvergne", "basse-normandie", "bourgogne",
-            "bretagne", "centre", "champagne-ardenne", "corse", "franche-comte",
-            "guadeloupe", "guyane", "haute-normandie", "ile-de-france",
-            "languedoc-roussillon", "limousin", "lorraine", "martinique",
-            "mayotte", "midi-pyrenees", "nord-pas-de-calais", "pays-de-la-loire",
-            "picardie", "poitou-charentes", "provence-alpes-cote-d-azur",
-            "reunion", "rhone-alpes",
-        },
-        "germany": {
-            "baden-wuerttemberg", "bayern", "berlin", "brandenburg", "bremen",
-            "hamburg", "hessen", "mecklenburg-vorpommern", "niedersachsen",
-            "nordrhein-westfalen", "rheinland-pfalz", "saarland", "sachsen",
-            "sachsen-anhalt", "schleswig-holstein", "thueringen",
-        },
-        "norway": {
-            "nord-norge", "ostlandet", "sorlandet", "svalbard-janmayen",
-            "trondelag", "vestlandet",
-        },
-        "italy": {
-            "centro", "isole", "nord-est", "nord-ovest", "sud",
-        },
-        "netherlands": {
-            "drenthe", "flevoland", "friesland", "gelderland", "groningen",
-            "limburg", "noord-brabant", "noord-holland", "overijssel",
-            "utrecht", "zeeland", "zuid-holland",
-        },
-        "poland": {
-            "dolnoslaskie", "kujawsko-pomorskie", "lodzkie", "lubelskie",
-            "lubuskie", "malopolskie", "mazowieckie", "opolskie",
-            "podkarpackie", "podlaskie", "pomorskie", "slaskie",
-            "swietokrzyskie", "warminsko-mazurskie", "wielkopolskie",
-            "zachodniopomorskie",
-        },
-        "spain": {
-            "andalucia", "aragon", "asturias", "cantabria",
-            "castilla-la-mancha", "castilla-y-leon", "cataluna", "ceuta",
-            "extremadura", "galicia", "islas-baleares", "la-rioja",
-            "madrid", "melilla", "murcia", "navarra", "pais-vasco",
-            "valencia",
-        },
-        "united-kingdom": {
-            "england", "scotland", "wales", "bermuda", "falklands",
-        },
-    }
-    # All regional children across all countries
-    ALL_REGIONAL = set()
-    for children in REGIONAL_CHILDREN.values():
-        ALL_REGIONAL.update(children)
+    # Regional child slugs come from osm_polygon_selection.dataset_build.countries.
 
     for pbf in sorted(raw_dir.glob("*-latest.osm.pbf")):
         country = pbf.name.replace("-latest.osm.pbf", "")
         if country == "europe":
             continue
-        if country in ALL_REGIONAL:
-            # Sub-region of a larger country; not an independent country.
+        if is_regional_child(country):
             continue
         if any(c["country"] == country for c in countries_done):
             continue

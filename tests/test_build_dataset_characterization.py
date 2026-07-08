@@ -21,7 +21,10 @@ from pathlib import Path
 def test_regional_children_excludes_sub_regions() -> None:
     """The ALL_REGIONAL set must include every child PBF name listed under
     REGIONAL_CHILDREN, exactly once."""
-    from scripts.build_dataset import REGIONAL_CHILDREN, ALL_REGIONAL
+    from osm_polygon_selection.dataset_build.countries import (
+        ALL_REGIONAL,
+        REGIONAL_CHILDREN,
+    )
 
     for parent, children in REGIONAL_CHILDREN.items():
         for child in children:
@@ -34,7 +37,7 @@ def test_regional_children_excludes_sub_regions() -> None:
 
 def test_regional_children_france_and_germany_subregions() -> None:
     """Spot-check specific well-known regional sub-PBFs."""
-    from scripts.build_dataset import REGIONAL_CHILDREN
+    from osm_polygon_selection.dataset_build.countries import REGIONAL_CHILDREN
 
     fr = REGIONAL_CHILDREN["france"]
     assert "alsace" in fr
@@ -44,6 +47,16 @@ def test_regional_children_france_and_germany_subregions() -> None:
     de = REGIONAL_CHILDREN["germany"]
     assert "baden-wuerttemberg" in de
     assert "berlin" in de
+
+
+def test_is_regional_child_predicate() -> None:
+    """is_regional_child returns True only for known sub-PBF slugs."""
+    from osm_polygon_selection.dataset_build.countries import is_regional_child
+
+    assert is_regional_child("alsace") is True
+    assert is_regional_child("bretagne") is True
+    assert is_regional_child("liechtenstein") is False
+    assert is_regional_child("france") is False  # parent, not a child
 
 
 def test_build_country_table_pure_markdown() -> None:
