@@ -40,26 +40,40 @@ def test_config_constants_match_current_values() -> None:
     assert sfm.GEO_COLS == ["centroid_lon", "centroid_lat"]
 
 
-def test_module_level_random_seed_does_not_affect_grid_sample() -> None:
+def test_module_level_random_seed_does_not_affect_grid_sample(tmp_path: Path) -> None:
     """Pin that grid_sample_country's determinism comes from its own rng,
     not from any module-level `random.seed(42)` call.
 
-    Strategy: import the module twice in the same process with different
-    global random states, then call grid_sample_country with the same
-    deterministic-local rng both times. Results must be identical.
+    Strategy: call grid_sample_country twice on the same fixture under
+    different global random states but with the same local
+    random.Random(42). Selected osm_ids must be identical. Only after
+    this test passes may random.seed(42) be safely removed.
     """
-    # Establish a "different" global state.
-    random.seed(999999)
-    np.random.seed(999999)
-    sfm = _load_sample_for_map_module()
+    lons = [10.0 + 0.001 * i for i in range(500)] + [11.0 + 0.001 * i for i in range(500)]
+    lats = [50.0 + 0.001 * i for i in range(500)] + [51.0 + 0.001 * i for i in range(500)]
+    pq_path = tmp_path / "x.parquet"
+    _make_synthetic_country_parquet(pq_path, lons, lats)
 
-    # Even if the module-level random.seed(42) executed, the local rng
-    # we pass in is what determines output. So results should be identical.
-    rng = random.Random(42)
-    # Just check the rng object is independently controllable.
-    assert rng.random() == random.Random(42).random()
-    # The module-level random state is irrelevant to rng's behavior.
-    del sfm  # unused
+    # First run: global state seeded with 1.
+    random.seed(1)
+    np.random.seed(1)
+    sfm = _load_sample_for_map_module()
+    rng1 = random.Random(42)
+    sample1 = sfm.grid_sample_country(pq_path, target_n=64, rng=rng1)
+    ids1 = sorted(r["osm_id"] for r in sample1)
+
+    # Second run: very different global state, same local rng seed.
+    random.seed(999_999_999)
+    np.random.seed(999_999_999)
+    sfm2 = _load_sample_for_map_module()
+    rng2 = random.Random(42)
+    sample2 = sfm2.grid_sample_country(pq_path, target_n=64, rng=rng2)
+    ids2 = sorted(r["osm_id"] for r in sample2)
+
+    assert ids1 == ids2, (
+        "grid_sample_country output differs when global random state changes; "
+        "it must be a pure function of (parquet, target_n, local rng)."
+    )
 
 
 def _make_synthetic_country_parquet(path: Path, lons: list[float], lats: list[float]) -> None:

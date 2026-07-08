@@ -104,3 +104,28 @@ def test_combine_raises_when_no_parquets_exist(tmp_path: Path) -> None:
             ],
             output_path=tmp_path / "all_world.parquet",
         )
+
+
+def test_combine_raises_when_positive_country_parquet_missing(tmp_path: Path) -> None:
+    """Positive-count country whose parquet is missing must raise, not be skipped.
+
+    Bug regression: previously the function silently continued past
+    missing files even when n_polygons > 0. That would let the
+    manifest claim 'france: 1000 polygons' while the combined file
+    was actually missing france's rows.
+    """
+    import pytest
+
+    _make_country_parquet(tmp_path / "france.parquet", "france", 1000)
+    # germany.parquet is INTENTIONALLY missing.
+    countries = [
+        {"country": "france", "n_polygons": 1000, "extract_status": "clean"},
+        {"country": "germany", "n_polygons": 500, "extract_status": "clean"},
+    ]
+
+    with pytest.raises((FileNotFoundError, OSError)):
+        combine_per_country_parquets(
+            out_dir=tmp_path,
+            countries=countries,
+            output_path=tmp_path / "all_world.parquet",
+        )

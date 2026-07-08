@@ -84,11 +84,21 @@ def combine_per_country_parquets(
             write_page_index=True,
         )
         for c in countries_list:
-            if int(c.get("n_polygons", 0)) == 0:
+            n_polygons = int(c.get("n_polygons", 0))
+            if n_polygons == 0:
+                # Zero-count rows (killed / not yet extracted) are
+                # silently skipped: their parquet does not exist.
                 continue
             table_path = out_dir_path / f"{c['country']}.parquet"
             if not table_path.is_file():
-                continue
+                # Positive-count country whose parquet is missing
+                # is a HARD ERROR. Silently skipping would let the
+                # manifest claim a row count that the combined file
+                # does not actually contain.
+                raise FileNotFoundError(
+                    f"per-country parquet missing for {c['country']!r} "
+                    f"with n_polygons={n_polygons}: {table_path}"
+                )
             table = pq.read_table(table_path)
             writer.write_table(table)
             total_rows += table.num_rows

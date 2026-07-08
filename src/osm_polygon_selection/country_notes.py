@@ -2,52 +2,25 @@
 
 Sourced from Geofabrik per-country pages. Used by
 organize_dataset.py to render the per-country READMEs.
+
+The regional sub-PBF map is a thin re-export over the canonical
+source-of-truth in :mod:`osm_polygon_selection.regional_pbf_meta`.
+Both this module and :mod:`osm_polygon_selection.dataset_build.countries`
+derive from the canonical map, so the build skip-list and the
+README regional list cannot drift.
 """
 
 from __future__ import annotations
 
+from osm_polygon_selection.regional_pbf_meta import (
+    REGIONAL_SUB_PBFS_CANONICAL as _REGIONAL_SUB_PBFS_CANONICAL,
+)
+
+# Public re-export: kept as a dict[str, list[str]] for backwards
+# compatibility with callers that expect lists (rather than sets).
 REGIONAL_SUB_PBFS: dict[str, list[str]] = {
-    "france": [
-        "alsace", "aquitaine", "auvergne", "basse-normandie", "bourgogne",
-        "bretagne", "centre", "champagne-ardenne", "corse", "franche-comte",
-        "ile-de-france", "languedoc-roussillon", "limousin", "lorraine",
-        "midi-pyrenees", "nord-pas-de-calais", "pays-de-la-loire",
-        "picardie", "poitou-charentes", "provence-alpes-cote-d-azur",
-        "rhone-alpes",
-        # plus overseas: guadeloupe, guyane, martinique, mayotte, reunion
-        "guadeloupe", "guyane", "martinique", "mayotte", "reunion",
-    ],
-    "germany": [
-        "baden-wuerttemberg", "bayern", "berlin", "brandenburg", "bremen",
-        "hamburg", "hessen", "mecklenburg-vorpommern", "niedersachsen",
-        "nordrhein-westfalen", "rheinland-pfalz", "saarland", "sachsen",
-        "sachsen-anhalt", "schleswig-holstein", "thueringen",
-    ],
-    "italy": ["centro", "isole", "nord-est", "nord-ovest", "sud"],
-    "netherlands": [
-        "drenthe", "flevoland", "friesland", "gelderland", "groningen",
-        "limburg", "noord-brabant", "noord-holland", "overijssel",
-        "utrecht", "zeeland", "zuid-holland",
-    ],
-    "norway": [
-        "nord-norge", "ostlandet", "sorlandet", "svalbard-janmayen",
-        "trondelag", "vestlandet",
-    ],
-    "poland": [
-        "dolnoslaskie", "kujawsko-pomorskie", "lodzkie", "lubelskie",
-        "lubuskie", "malopolskie", "mazowieckie", "opolskie",
-        "podkarpackie", "podlaskie", "pomorskie", "slaskie",
-        "swietokrzyskie", "warminsko-mazurskie", "wielkopolskie",
-        "zachodniopomorskie",
-    ],
-    "spain": [
-        "andalucia", "aragon", "asturias", "cantabria",
-        "castilla-la-mancha", "castilla-y-leon", "cataluna", "ceuta",
-        "extremadura", "galicia", "islas-baleares", "la-rioja",
-        "madrid", "melilla", "murcia", "navarra", "pais-vasco",
-        "valencia",
-    ],
-    "united-kingdom": ["england", "scotland", "wales"],
+    parent: sorted(children)
+    for parent, children in _REGIONAL_SUB_PBFS_CANONICAL.items()
 }
 
 COUNTRY_NOTES: dict[str, str] = {
@@ -555,7 +528,6 @@ COUNTRY_NOTES: dict[str, str] = {
                       "scotland, wales). Among the world's best-mapped "
                       "countries.",
 }
-
 
 def country_source_description(country: str) -> str:
     """One-line description of the source PBF(s) used for this country."""
