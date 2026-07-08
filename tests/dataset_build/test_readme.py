@@ -15,7 +15,7 @@ import pyarrow as pa
 import pyarrow.parquet as pq
 
 FIXTURE = (
-    Path(__file__).resolve().parent
+    Path(__file__).resolve().parent.parent
     / "fixtures"
     / "readme"
     / "dataset_write_readme_minimal.md"

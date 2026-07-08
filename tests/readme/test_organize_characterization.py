@@ -11,7 +11,7 @@ from __future__ import annotations
 from pathlib import Path
 
 FROZEN_DATE = "2026-01-01T00:00:00"
-FIXTURES = Path(__file__).resolve().parent / "fixtures" / "readme"
+FIXTURES = Path(__file__).resolve().parent.parent / "fixtures" / "readme"
 
 
 def _minimal_manifest() -> dict:
