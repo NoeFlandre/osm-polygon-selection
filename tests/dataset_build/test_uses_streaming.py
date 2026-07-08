@@ -16,12 +16,12 @@ import pyarrow as pa
 import pyarrow.parquet as pq
 import pytest
 
-from osm_polygon_selection.dataset_build.runner import _process_classified_country
+from osm_polygon_selection.dataset_build.country_processing import process_classified_country
 
 
 @pytest.fixture
 def classified_country_dir(tmp_path: Path) -> Path:
-    """Build a PROC/<country> with 03_classified.jsonl + run.json."""
+    """Build a PROC/<country> with 03_classified.jsonl + run.json + whitelist."""
     proc_country = tmp_path / "monaco"
     proc_country.mkdir()
     rows = [
@@ -39,17 +39,25 @@ def classified_country_dir(tmp_path: Path) -> Path:
     return proc_country
 
 
+@pytest.fixture
+def whitelist_path(tmp_path: Path) -> Path:
+    p = tmp_path / "whitelist.json"
+    p.write_text(json.dumps(["landuse=forest"]))
+    return p
+
+
 def test_streaming_path_writes_parquet(
-    monkeypatch: pytest.MonkeyPatch, classified_country_dir: Path, tmp_path: Path
+    classified_country_dir: Path, tmp_path: Path, whitelist_path: Path
 ) -> None:
     """The streaming writer path produces a per-country parquet."""
     out_dir = tmp_path / "out"
     out_dir.mkdir()
-    row = _process_classified_country(
+    row = process_classified_country(
         classified_country_dir,
         out_dir,
         geometry_encoding="wkt",
-        whitelist_path=Path("/nonexistent"),
+        whitelist_path=whitelist_path,
+        raw_root=tmp_path,
     )
     assert row is not None
     assert row["n_polygons"] == 3
@@ -59,7 +67,7 @@ def test_streaming_path_writes_parquet(
 
 
 def test_fallback_path_writes_parquet(
-    monkeypatch: pytest.MonkeyPatch, classified_country_dir: Path, tmp_path: Path
+    monkeypatch: pytest.MonkeyPatch, classified_country_dir: Path, tmp_path: Path, whitelist_path: Path
 ) -> None:
     """If the streaming writer raises, the per-row fallback still writes."""
     out_dir = tmp_path / "out"
@@ -68,14 +76,15 @@ def test_fallback_path_writes_parquet(
     def _broken_writer(*_args, **_kwargs) -> int:
         raise RuntimeError("simulated streaming failure")
 
-    from osm_polygon_selection.dataset_build import runner
-    monkeypatch.setattr(runner, "write_jsonl_to_parquet", _broken_writer)
+    from osm_polygon_selection.dataset_build import country_processing
+    monkeypatch.setattr(country_processing, "write_jsonl_to_parquet", _broken_writer)
 
-    row = _process_classified_country(
+    row = process_classified_country(
         classified_country_dir,
         out_dir,
         geometry_encoding="wkt",
-        whitelist_path=Path("/nonexistent"),
+        whitelist_path=whitelist_path,
+        raw_root=tmp_path,
     )
     assert row is not None
     assert row["n_polygons"] == 3
@@ -83,7 +92,7 @@ def test_fallback_path_writes_parquet(
 
 
 def test_zero_yield_returns_manifest_row(
-    monkeypatch: pytest.MonkeyPatch, classified_country_dir: Path, tmp_path: Path
+    monkeypatch: pytest.MonkeyPatch, classified_country_dir: Path, tmp_path: Path, whitelist_path: Path
 ) -> None:
     """If both paths yield 0, the runner returns a zero-yield manifest row."""
     out_dir = tmp_path / "out"
@@ -92,17 +101,18 @@ def test_zero_yield_returns_manifest_row(
     def _zero_writer(*_args, **_kwargs) -> int:
         return 0
 
-    from osm_polygon_selection.dataset_build import runner
-    monkeypatch.setattr(runner, "write_jsonl_to_parquet", _zero_writer)
+    from osm_polygon_selection.dataset_build import country_processing
+    monkeypatch.setattr(country_processing, "write_jsonl_to_parquet", _zero_writer)
 
     # Empty the input file so the per-row fallback also yields 0.
     (classified_country_dir / "03_classified.jsonl").write_text("")
 
-    row = _process_classified_country(
+    row = process_classified_country(
         classified_country_dir,
         out_dir,
         geometry_encoding="wkt",
-        whitelist_path=Path("/nonexistent"),
+        whitelist_path=whitelist_path,
+        raw_root=tmp_path,
     )
     assert row is not None
     assert row["n_polygons"] == 0
