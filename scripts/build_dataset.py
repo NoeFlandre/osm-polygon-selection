@@ -60,6 +60,9 @@ from osm_polygon_selection.paths import dataset_root
 from osm_polygon_selection.pbf_meta import NON_EUROPE_COUNTRIES
 from osm_polygon_selection.dataset_build.records import pbf_date_for as _pbf_date_for
 from osm_polygon_selection.dataset_build.records import row_to_record as _row_to_record
+from osm_polygon_selection.dataset_build.combined import (
+    combine_per_country_parquets as _combine_per_country_parquets,
+)
 from osm_polygon_selection.dataset_build.countries import (  # noqa: F401
     ALL_REGIONAL,
     REGIONAL_CHILDREN,
@@ -830,29 +833,14 @@ def main() -> None:
         })
         print(f"  {country}: 0 polygons (no 03 file, PBF present, recorded)")
     print("\nBuilding combined parquet...")
-    # Streaming write: append each per-country table to the
-    # combined file via ParquetWriter. Avoids holding the full
-    # ~14M-row concat in memory (which OOMs on this host).
-    # Use the schema of the first per-country file, then never
-    # read all the tables into a list.
-    out_path = out_dir / "all_world.parquet"
-    schema = pq.read_schema(out_dir / f"{countries_done[0]['country']}.parquet")
-    writer = pq.ParquetWriter(
-        out_path,
-        schema,
-        compression="zstd",
-        compression_level=1,
-        write_page_index=True,
+    # Streaming write delegated to the package function (which
+    # handles writer close on exception).
+    total_rows = _combine_per_country_parquets(
+        out_dir=out_dir,
+        countries=countries_done,
+        output_path=out_dir / "all_world.parquet",
     )
-    total_rows = 0
-    for c in countries_done:
-        if c["n_polygons"] == 0:
-            continue
-        table = pq.read_table(out_dir / f"{c['country']}.parquet")
-        writer.write_table(table)
-        total_rows += table.num_rows
-    writer.close()
-    print(f"  combined: {total_rows} polygons -> {out_path}")
+    print(f"  combined: {total_rows} polygons -> {out_dir / 'all_world.parquet'}")
 
     write_readme(out_dir, countries_done, total_rows)
     write_metadata_yaml(out_dir)
