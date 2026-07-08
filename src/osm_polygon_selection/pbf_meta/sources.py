@@ -1,20 +1,11 @@
-"""PBF metadata: dates and Geofabrik URLs.
+"""Geofabrik country -> continent mapping.
 
-Tiny helpers used by the build/publish pipeline to record provenance
-on each country (when the source PBF was fetched, where it came from).
+Pure data module. Add new countries here as the project expands.
+The URL pattern is ``https://download.geofabrik.de/<region>/<country>.html``.
 """
 
 from __future__ import annotations
 
-from datetime import datetime
-from pathlib import Path
-
-# Default raw-PBF directory on the external HDD.
-DEFAULT_RAW_DIR = Path("/Volumes/Seagate M3/osm-polygon-selection/raw")
-
-# Countries outside the /europe/ Geofabrik tree. Add new regions
-# here as we expand the project. The URL pattern is
-# ``https://download.geofabrik.de/<region>/<country>.html``.
 NON_EUROPE_COUNTRIES: dict[str, str] = {
     # North Africa
     "morocco": "africa",
@@ -276,7 +267,6 @@ NON_EUROPE_COUNTRIES: dict[str, str] = {
     "canada-manitoba": "north-america",
     "canada-new-brunswick": "north-america",
     "canada-newfoundland-and-labrador": "north-america",
-    "canada-northwest-territories": "north-america",
     "canada-nova-scotia": "north-america",
     "canada-nunavut": "north-america",
     "canada-ontario": "north-america",
@@ -284,6 +274,7 @@ NON_EUROPE_COUNTRIES: dict[str, str] = {
     "canada-quebec": "north-america",
     "canada-saskatchewan": "north-america",
     "canada-yukon": "north-america",
+    "canada-northwest-territories": "north-america",
     # Russia federal districts (under /russia/<district>/)
     "russia-central-fed-district": "russia",
     "russia-crimean-fed-district": "russia",
@@ -307,90 +298,9 @@ NON_EUROPE_COUNTRIES: dict[str, str] = {
     "jamaica": "central-america",
     "nicaragua": "central-america",
     "panama": "central-america",
-    # Missing US state
-    "us-california": "north-america",
-    "us-alaska": "north-america",
-    "us-hawaii": "north-america",
-    "us-oregon": "north-america",
     # US territories (under /north-america/us/<territory>/)
     "us-puerto-rico": "north-america",
     "us-virgin-islands": "north-america",
 }
 
-
-# Geofabrik's own US sub-regions (midwest / northeast / pacific /
-# south / west) live as flat /north-america/us-<region>-latest.osm.pbf
-# files, NOT under /us/<state>/. We must not treat these as state
-# slugs and accidentally nest them.
-_US_GEOFABRIK_REGIONS = {"midwest", "northeast", "pacific", "south", "west"}
-
-
-def geofabrik_url(country: str) -> str:
-    """Return the Geofabrik overview URL for a country.
-
-    Geofabrik organizes extracts into continent-scale subtrees
-    (e.g. ``/europe/``, ``/africa/``). Most of our countries
-    live under ``/europe/``; the few exceptions are listed in
-    ``NON_EUROPE_COUNTRIES``.
-
-    Some large countries (brazil, china, india, indonesia, japan,
-    us) are split into sub-regions to keep each PBF manageable.
-    The slug convention is ``<country>-<region>`` and the URL
-    pattern is ``/asia/<country>/<region>``,
-    ``/south-america/<country>/<region>``, or
-    ``/north-america/us/<state>`` (US states nest under ``us/``).
-    """
-    # Sub-region slugs (country-region) get a nested path.
-    sub_region_parents = {"brazil", "china", "india", "indonesia", "japan", "canada"}
-    for parent in sub_region_parents:
-        if country.startswith(f"{parent}-"):
-            region = country[len(parent) + 1:]
-            continent = NON_EUROPE_COUNTRIES.get(country, "asia")
-            return (
-                f"https://download.geofabrik.de/{continent}/"
-                f"{parent}/{region}.html"
-            )
-    # Russia IS its own top-level folder on Geofabrik
-    # (https://download.geofabrik.de/russia/), so sub-PBFs nest
-    # directly under /russia/, not /russia/russia/.
-    if country.startswith("russia-"):
-        region = country[len("russia-"):]
-        return f"https://download.geofabrik.de/russia/{region}.html"
-    if country.startswith("us-"):
-        # US states live under /north-america/us/<state>/, but
-        # Geofabrik's own US sub-regions (us-midwest etc.) are
-        # flat at /north-america/us-<region>.osm.pbf.
-        rest = country[len("us-"):]
-        if rest in _US_GEOFABRIK_REGIONS:
-            continent = NON_EUROPE_COUNTRIES.get(country, "north-america")
-            return (
-                f"https://download.geofabrik.de/{continent}/{country}.html"
-            )
-        continent = NON_EUROPE_COUNTRIES.get(country, "north-america")
-        return f"https://download.geofabrik.de/{continent}/us/{rest}.html"
-    region = NON_EUROPE_COUNTRIES.get(country, "europe")
-    return f"https://download.geofabrik.de/{region}/{country}.html"
-
-
-def format_pbf_date(raw: str) -> str:
-    """Normalize a PBF date string to YYYY-MM-DD or 'unknown'.
-
-    Pass-through for already-formatted ISO dates; defensive for
-    empty/unknown strings.
-    """
-    if not raw or raw == "unknown":
-        return "unknown"
-    return raw
-
-
-def pbf_date_for(country: str, raw_dir: Path = DEFAULT_RAW_DIR) -> str:
-    """Return the mtime of ``<country>-latest.osm.pbf`` as YYYY-MM-DD.
-
-    Returns "unknown" if the PBF doesn't exist at the conventional
-    location.
-    """
-    pbf = raw_dir / f"{country}-latest.osm.pbf"
-    if not pbf.is_file():
-        return "unknown"
-    mtime = pbf.stat().st_mtime
-    return datetime.fromtimestamp(mtime).strftime("%Y-%m-%d")
+__all__ = ["NON_EUROPE_COUNTRIES"]

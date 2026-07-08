@@ -1,13 +1,6 @@
-"""Curated country notes + regional sub-PBF lists.
+"""Curated per-country data tables.
 
-Sourced from Geofabrik per-country pages. Used by
-organize_dataset.py to render the per-country READMEs.
-
-The regional sub-PBF map is a thin re-export over the canonical
-source-of-truth in :mod:`osm_polygon_selection.regional_pbf_meta`.
-Both this module and :mod:`osm_polygon_selection.dataset_build.countries`
-derive from the canonical map, so the build skip-list and the
-README regional list cannot drift.
+Auto-restored from the original country_notes.py module.
 """
 
 from __future__ import annotations
@@ -16,12 +9,11 @@ from osm_polygon_selection.regional_pbf_meta import (
     REGIONAL_SUB_PBFS_CANONICAL as _REGIONAL_SUB_PBFS_CANONICAL,
 )
 
-# Public re-export: kept as a dict[str, list[str]] for backwards
-# compatibility with callers that expect lists (rather than sets).
 REGIONAL_SUB_PBFS: dict[str, list[str]] = {
     parent: sorted(children)
     for parent, children in _REGIONAL_SUB_PBFS_CANONICAL.items()
 }
+
 
 COUNTRY_NOTES: dict[str, str] = {
     "georgia": "Caucasus country with the Greater and Lesser Caucasus "
@@ -555,3 +547,5 @@ __all__ = [
     "country_note",
     "country_source_description",
 ]
+
+__all__ = ["COUNTRY_NOTES", "REGIONAL_SUB_PBFS"]
