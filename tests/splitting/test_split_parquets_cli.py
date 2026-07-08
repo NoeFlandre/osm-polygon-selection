@@ -31,7 +31,7 @@ def test_cli_root_derives_source_and_out(tmp_path: Path) -> None:
     and write to /tmp/ds/splits, when --source/--out are not passed."""
     import importlib.util
 
-    script_path = Path(__file__).resolve().parents[1] / "scripts" / "split_parquets.py"
+    script_path = Path(__file__).resolve().parents[2] / "scripts" / "split_parquets.py"
     spec = importlib.util.spec_from_file_location("split_parquets_cli", script_path)
     assert spec is not None and spec.loader is not None
     module = importlib.util.module_from_spec(spec)
@@ -52,7 +52,7 @@ def test_cli_explicit_source_out_overrides_root(tmp_path: Path) -> None:
     """`--source X` and `--out Y` take precedence over the --root default."""
     import importlib.util
 
-    script_path = Path(__file__).resolve().parents[1] / "scripts" / "split_parquets.py"
+    script_path = Path(__file__).resolve().parents[2] / "scripts" / "split_parquets.py"
     spec = importlib.util.spec_from_file_location("split_parquets_cli_overrides", script_path)
     assert spec is not None and spec.loader is not None
     module = importlib.util.module_from_spec(spec)

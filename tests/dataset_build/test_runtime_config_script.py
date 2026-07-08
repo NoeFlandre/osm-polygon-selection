@@ -39,7 +39,7 @@ def _run_probe(env_root: str) -> dict[str, str]:
         capture_output=True,
         text=True,
         check=True,
-        cwd=Path(__file__).resolve().parents[1],
+        cwd=Path(__file__).resolve().parents[2],
     )
     out: dict[str, str] = {}
     for line in result.stdout.splitlines():
@@ -79,7 +79,7 @@ def test_build_dataset_default_hdd_when_no_env(monkeypatch, tmp_path: Path) -> N
         capture_output=True,
         text=True,
         check=True,
-        cwd=Path(__file__).resolve().parents[1],
+        cwd=Path(__file__).resolve().parents[2],
     )
     hdd = next(
         (line.split("=", 1)[1] for line in result.stdout.splitlines() if line.startswith("HDD=")),

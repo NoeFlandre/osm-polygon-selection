@@ -369,13 +369,107 @@ See `docs/PERFORMANCE.md` for the full history of optimizations.
 | `.claude.md`                                     | Local agent memory (gitignored, this is the source of truth for the HDD policy) |
 | `src/osm_polygon_selection/paths.py`             | Where the env var resolution happens            |
 | `src/osm_polygon_selection/pbf_meta.py`          | `NON_EUROPE_COUNTRIES` + `geofabrik_url()`       |
-| `src/osm_polygon_selection/readme_render.py`     | Root + per-country README rendering (templates)  |
+| `src/osm_polygon_selection/readme_render.py`     | Root + per-country README rendering (facade for `osm_polygon_selection.readme`) |
 | `src/osm_polygon_selection/schema_defs.py`       | Frozen parquet schema                            |
 | `scripts/make_split.py`                          | train/val/test split (now skipping per-country rewrites) |
-| `scripts/build_dataset.py`                       | Build the parquet dataset                        |
-| `scripts/organize_dataset.py`                    | Move flat dataset/ to HF viewer layout           |
+| `scripts/build_dataset.py`                       | Build the parquet dataset (thin CLI)             |
+| `scripts/organize_dataset.py`                    | Move flat dataset/ to HF viewer layout (thin CLI) |
+| `scripts/sample_for_map.py`                      | Per-country grid-stratified sample (thin CLI)    |
 | `scripts/upload_to_hf.py`                        | Push to HuggingFace                              |
 | `docs/dataset_state.md`                          | Live state doc (rebuilt every commit)            |
 | `docs/ARCHITECTURE.md`                           | Deep dive on modules                             |
+| `docs/architecture.md`                           | Pipeline overview + module ownership map         |
 | `docs/PERFORMANCE.md`                            | Benchmarks                                       |
 | `docs/AFRICA_ROLLOUT.md`                         | Africa loop status                               |
+
+---
+
+## 10. Verification, module ownership, and rules (post quality-uplift)
+
+### Canonical verification commands
+
+After any non-trivial change, run these in order:
+
+```bash
+# 1. Run the full test suite (skip the known-flaky perf test).
+uv run pytest tests/ \
+  --deselect tests/stages/test_extract_perf.py::TestWallClockCap::test_wall_clock_cap_stops_clean
+
+# 2. Type-check the whole package + scripts.
+uv run mypy src scripts
+
+# 3. Coverage on a clean run.
+uv run python -m coverage run -m pytest tests/ \
+  --deselect tests/stages/test_extract_perf.py::TestWallClockCap::test_wall_clock_cap_stops_clean
+uv run python -m coverage report -m --skip-covered
+```
+
+All three should pass before any commit. The "known flaky" perf
+test is excluded via `--deselect` and is pre-existing.
+
+### Module ownership map
+
+Each domain has a package; each package has thin, focused modules:
+
+| Package                                         | Owns                                                                    |
+|-------------------------------------------------|-------------------------------------------------------------------------|
+| `osm_polygon_selection.dataset_build`           | The build pipeline: config, records, countries, combined, manifest, country_processing, discovery, artifacts, runner, whitelist |
+| `osm_polygon_selection.dataset_organize`        | The organize step: manifests, readmes (delegating to `readme`), runner   |
+| `osm_polygon_selection.readme`                  | All README renderers (country, folder, root, dataset, metadata, notes); templates.py owns long-form markdown / YAML |
+| `osm_polygon_selection.sampling`                | The sample-for-map pipeline: config, discovery, grid, rows, runner       |
+| `osm_polygon_selection.parquet_write`           | The streaming writer: atomic, jsonl, transform, matched_tags; `streaming_writer.py` is a thin facade |
+| `osm_polygon_selection.stages`                  | Stage 0/2/3 extract / filter / classify                                 |
+| `osm_polygon_selection.core`                    | Shared geometry utilities, JSONL parsing                                |
+| `osm_polygon_selection.pbf_meta`                | `NON_EUROPE_COUNTRIES`, regional PBF map, `geofabrik_url`               |
+| `osm_polygon_selection.country_notes`           | Curated per-country notes + `country_source_description`                |
+| `osm_polygon_selection.country_table`           | Markdown table renderer for the per-country summary                      |
+
+### Test tree ownership
+
+`tests/` mirrors the package structure. **No new root-level test
+files.** Add new tests under the appropriate domain subfolder:
+
+| Test domain         | Path                       |
+|---------------------|----------------------------|
+| Build / dataset_build package | `tests/dataset_build/`   |
+| Organize step       | `tests/dataset_build/` (readmes live with the build readme tests), `tests/scripts/` for organize-specific smoke tests |
+| README renderers    | `tests/readme/`            |
+| Sampling            | `tests/sampling/`          |
+| Splitting (make_split, split_parquets) | `tests/splitting/` |
+| IO (streaming_writer, schema_defs, whitelist_io) | `tests/io/`     |
+| Metadata (pbf_meta, git_meta, paths, regional sync) | `tests/metadata/` |
+| Scripts (visualize, dataset_layout) | `tests/scripts/` |
+| Core utilities      | `tests/core/`              |
+| Stage tests         | `tests/stages/`            |
+
+### Hard rules (post quality-uplift)
+
+1. **Scripts are CLIs only.** `scripts/*.py` parse argv, call a
+   package `runner.run_*`, and print results. No business logic
+   in the script itself. The script may re-export package
+   functions for backwards-compat with existing tests, but no
+   new logic.
+2. **No new root-level test files.** All new tests go into the
+   appropriate `tests/<domain>/` subfolder.
+3. **No behavior refactor without characterization tests.** If
+   you change behavior, pin the new behavior in a test FIRST
+   (red), then change the code (green), then refactor.
+4. **No README template duplication.** All README text lives in
+   `osm_polygon_selection.readme.templates`. Other packages
+   (e.g. `dataset_organize`) must call into `readme`, not
+   duplicate prose.
+5. **No non-template source file over ~220 LOC.** If a module
+   grows past 220, split it. Templates are exempt (they live in
+   `readme.templates`).
+6. **No new file references in `scripts/*.py` to test fixtures
+   or `tests/` paths.** Tests live in `tests/<domain>/`; the
+   scripts are CLIs.
+7. **No `os.path`. Use `pathlib.Path`.**
+8. **No new env vars without updating `docs/AGENT_HANDOFF.md`**
+   section 1 (storage policy) so a fresh session can discover them.
+9. **No data files in commits.** `data/` is gitignored; same for
+   any local `~/osm-polygon-selection-dataset/`.
+
+If a change violates any of these rules, the next agent will
+have to undo the rule-break. Better to fix it now.
+

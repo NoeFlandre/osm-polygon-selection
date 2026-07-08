@@ -20,7 +20,7 @@ from pathlib import Path
 
 import pytest
 
-SCRIPTS_DIR = Path(__file__).resolve().parents[1] / "scripts"
+SCRIPTS_DIR = Path(__file__).resolve().parents[2] / "scripts"
 VISUALIZE = SCRIPTS_DIR / "visualize.py"
 
 
