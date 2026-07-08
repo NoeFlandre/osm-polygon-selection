@@ -15,7 +15,7 @@ from pathlib import Path
 
 import pytest
 
-BUILD_DATASET = Path(__file__).resolve().parents[1] / "scripts" / "build_dataset.py"
+BUILD_DATASET = Path(__file__).resolve().parents[2] / "scripts" / "build_dataset.py"
 spec = importlib.util.spec_from_file_location("build_dataset", BUILD_DATASET)
 if spec is None or spec.loader is None:
     raise ImportError(f"could not load {BUILD_DATASET}")
