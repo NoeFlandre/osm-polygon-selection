@@ -16,7 +16,6 @@ tags:
 size_categories:
   - 1M<n<10M
 ---
-
 # osm-polygon-selection dataset
 
 A curated set of OpenStreetMap polygons from **2 countries**,
