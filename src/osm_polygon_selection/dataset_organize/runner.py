@@ -29,9 +29,10 @@ from osm_polygon_selection.dataset_organize.readmes import (
 
 DEFAULT_ROOT = Path("/Volumes/Seagate M3/osm-polygon-selection/dataset")
 DEFAULT_SAMPLE_SRC = Path("/tmp/sample_map.jsonl")
-DEFAULT_PREVIEW_SRC = Path(
-    "/Users/noeflandre/osm-polygon-selection/data/dataset/map_preview.png"
-)
+# Operator-supplied path; the operator script (scripts/organize_dataset.py)
+# can pass any local preview PNG. The default is intentionally a
+# placeholder that callers MUST override via run_organize(preview_src=...).
+DEFAULT_PREVIEW_SRC = Path("/tmp/map_preview.png")
 
 
 def run_organize(

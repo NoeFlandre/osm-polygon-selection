@@ -2,7 +2,7 @@
 
 High-level overview of the build pipeline, module ownership, and
 the rules for adding code or tests. The companion document
-[`AGENT_HANDOFF.md`](./AGENT_HANDOFF.md) captures project
+[`AGENT_HANDOFF.md`](./internal/AGENT_HANDOFF.md) captures project
 conventions; this one focuses on the **structure** of the
 package.
 
@@ -69,7 +69,7 @@ runtime_config.RuntimeConfig   # env-driven HDD / PROC / whitelist
                                  paths (honors $OSM_DATA_ROOT)
 ```
 
-Both are env-driven. See `docs/AGENT_HANDOFF.md` section 1 for
+Both are env-driven. See `docs/internal/AGENT_HANDOFF.md` section 1 for
 the storage policy that decides which env vars must be set
 before running any pipeline.
 
@@ -111,7 +111,7 @@ before running any pipeline.
 
 ## Module ownership map
 
-See [`AGENT_HANDOFF.md` section 10](./AGENT_HANDOFF.md#10-verification-module-ownership-and-rules-post-quality-uplift)
+See [`AGENT_HANDOFF.md` section 10](./internal/AGENT_HANDOFF.md#10-verification-module-ownership-and-rules-post-quality-uplift)
 for the full table of which package owns which concern.
 
 Quick summary:

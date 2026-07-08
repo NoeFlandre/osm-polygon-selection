@@ -377,7 +377,6 @@ See `docs/PERFORMANCE.md` for the full history of optimizations.
 | `scripts/sample_for_map.py`                      | Per-country grid-stratified sample (thin CLI)    |
 | `scripts/upload_to_hf.py`                        | Push to HuggingFace                              |
 | `docs/dataset_state.md`                          | Live state doc (rebuilt every commit)            |
-| `docs/ARCHITECTURE.md`                           | Deep dive on modules                             |
 | `docs/architecture.md`                           | Pipeline overview + module ownership map         |
 | `docs/PERFORMANCE.md`                            | Benchmarks                                       |
 | `docs/AFRICA_ROLLOUT.md`                         | Africa loop status                               |
@@ -465,7 +464,7 @@ files.** Add new tests under the appropriate domain subfolder:
    or `tests/` paths.** Tests live in `tests/<domain>/`; the
    scripts are CLIs.
 7. **No `os.path`. Use `pathlib.Path`.**
-8. **No new env vars without updating `docs/AGENT_HANDOFF.md`**
+8. **No new env vars without updating `docs/internal/AGENT_HANDOFF.md`**
    section 1 (storage policy) so a fresh session can discover them.
 9. **No data files in commits.** `data/` is gitignored; same for
    any local `~/osm-polygon-selection-dataset/`.

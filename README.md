@@ -16,7 +16,7 @@ per-country parquets.
 ## Quickstart (TL;DR for a fresh session)
 
 ```bash
-# 1. Set the HDD env vars (CRITICAL — see docs/AGENT_HANDOFF.md)
+# 1. Set the HDD env vars (CRITICAL — see docs/internal/AGENT_HANDOFF.md)
 export OSM_DATA_ROOT="/Volumes/Seagate M3/osm-polygon-selection"
 export OSM_DATASET_DIR="/Volumes/Seagate M3/osm-polygon-selection/dataset"
 
@@ -59,7 +59,7 @@ cp data/dataset/map_preview.png $OSM_DATASET_DIR/preview/map_preview.png
 uv run scripts/upload_to_hf.py
 ```
 
-**Always** read `docs/AGENT_HANDOFF.md` before doing anything. It
+**Always** read `docs/internal/AGENT_HANDOFF.md` before doing anything. It
 captures all the conventions, gotchas, TDD workflow, and storage
 policy that took months to learn.
 
@@ -214,7 +214,7 @@ least one `natural=*` or `landuse=*` tag).
 
 See `docs/whitelist_decisions.md` for the rationale and
 edge-case decisions, and
-`docs/ARCHITECTURE.md` for the data flow.
+`docs/architecture.md` for the data flow.
 
 ---
 
@@ -306,17 +306,14 @@ data/                           LOCAL-ONLY (gitignored, NOT the source of truth)
                                 (kept locally so stage 2 doesn't need osm-stats)
 
 docs/                           markdown knowledge base
-  AGENT_HANDOFF.md              conventions, gotchas, TDD workflow — READ FIRST
-  ARCHITECTURE.md               deep dive on each module + data flow
+  architecture.md               deep dive on each module + data flow
   PERFORMANCE.md                benchmarks + optimizations applied
-  AFRICA_ROLLOUT.md             /africa/ loop state, queue, partial dirs
   dataset_state.md              live state doc (rebuilt every commit)
   whitelist_decisions.md        rationale for whitelist filtering
-
-.claude.md                      local agent memory (gitignored — DO NOT COMMIT
-                                hard rules; this is the storage policy + TDD
-                                loop conventions that would otherwise be lost
-                                between sessions)
+  internal/                     contributor-facing docs
+    AGENT_HANDOFF.md            conventions, gotchas, TDD workflow — READ FIRST
+    AFRICA_ROLLOUT.md           /africa/ loop state, queue, partial dirs
+    skills/                     contributor skill notes
 ```
 
 ---
@@ -336,14 +333,14 @@ docs/                           markdown knowledge base
   path off the project root (e.g. `~/osm-polygon-selection-dataset/`)
   which silently fills up the SSD. **Always** export both.
 
-See `docs/AGENT_HANDOFF.md` for the full storage policy.
+See `docs/internal/AGENT_HANDOFF.md` for the full storage policy.
 
 ---
 
 ## Tests
 
 ```bash
-# Must stay ≥ 278 passing before any commit
+# Must stay ≥ 390 passing before any commit
 uv run pytest tests/ \
   --deselect tests/stages/test_extract_perf.py::TestWallClockCap::test_wall_clock_cap_stops_clean
 ```
@@ -352,7 +349,7 @@ The deselect is for a pre-existing flaky test (SIGALRM at teardown)
 that has nothing to do with our pipeline.
 
 TDD workflow is mandatory for any new feature or bugfix. See
-`docs/AGENT_HANDOFF.md` for the red-green-modular loop.
+`docs/internal/AGENT_HANDOFF.md` for the red-green-modular loop.
 
 ---
 

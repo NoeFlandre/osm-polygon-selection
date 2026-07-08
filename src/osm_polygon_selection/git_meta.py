@@ -8,13 +8,23 @@ fall back to "unknown" / "." without raising.
 
 from __future__ import annotations
 
+import os
 import subprocess
 from pathlib import Path
 
 # The project root is the directory that contains pyproject.toml.
-# Hard-coded for the canonical repo; callers can override via the
-# optional `cwd` parameter on each function.
-_DEFAULT_REPO_ROOT = Path("/Users/noeflandre/osm-polygon-selection")
+# Falls back to $OSM_REPO_ROOT if set; otherwise derives from
+# git rev-parse at call time. Callers can override via the
+# optional ``cwd`` parameter on each function.
+_DEFAULT_REPO_ROOT_ENV = "OSM_REPO_ROOT"
+
+
+def _fallback_repo_root() -> Path:
+    """Return the fallback repo root: $OSM_REPO_ROOT or '.'."""
+    env_val = os.environ.get(_DEFAULT_REPO_ROOT_ENV)
+    if env_val:
+        return Path(env_val)
+    return Path(".")
 
 
 def _run_git(args: list[str], cwd: Path | None) -> str:
@@ -35,15 +45,13 @@ def repo_root(cwd: Path | None = None) -> Path:
     """Return the repo root Path, falling back to a sensible default.
 
     Uses ``git rev-parse --show-toplevel`` when possible. If git is
-    missing or we're not in a repo, returns ``_DEFAULT_REPO_ROOT`` if
-    it exists, else ``Path('.')``.
+    missing or we're not in a repo, returns ``$OSM_REPO_ROOT`` if
+    set, else ``Path('.')``.
     """
     out = _run_git(["rev-parse", "--show-toplevel"], cwd)
     if out:
         return Path(out)
-    if _DEFAULT_REPO_ROOT.exists():
-        return _DEFAULT_REPO_ROOT
-    return Path(".")
+    return _fallback_repo_root()
 
 
 def git_short_sha(cwd: Path | None = None) -> str:

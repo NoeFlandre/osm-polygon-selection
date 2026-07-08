@@ -4,8 +4,8 @@ This document captures the wall-clock numbers for each pipeline
 step on the real 77-country dataset, and the optimizations that
 got us here.
 
-For conventions + storage policy, see `docs/AGENT_HANDOFF.md`.
-For architectural details, see `docs/ARCHITECTURE.md`.
+For conventions + storage policy, see `docs/internal/AGENT_HANDOFF.md`.
+For architectural details, see `docs/architecture.md`.
 
 ---
 
@@ -40,7 +40,7 @@ cost **~22 minutes of rebuild time**:
 | **Total**             |              ~22 m  |          **~15 m** |
 
 The `make_split.py` savings came from commit `1edc041` (TDD
-red-green, see `docs/AGENT_HANDOFF.md` for the workflow).
+red-green, see `docs/internal/AGENT_HANDOFF.md` for the workflow).
 
 ### Why was make_split so slow?
 
@@ -209,7 +209,7 @@ That's the old slow path. The fix is in commit `1edc041`.
 
 ## Future optimization ideas
 
-(Not yet implemented; tracked in `docs/AGENT_HANDOFF.md`.)
+(Not yet implemented; tracked in `docs/internal/AGENT_HANDOFF.md`.)
 
 - **Parallel per-country stage 0** with 2-3 workers (already safe
   with the WAL, just need a driver script).

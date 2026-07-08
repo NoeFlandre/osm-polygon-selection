@@ -3,8 +3,8 @@
 **This document is updated on every commit that changes the dataset.**
 
 It captures the current numbers; for *why* or *how*, see the other
-docs in `docs/` (especially `AGENT_HANDOFF.md`, `ARCHITECTURE.md`,
-`PERFORMANCE.md`, `AFRICA_ROLLOUT.md`).
+docs in `docs/` (especially `internal/AGENT_HANDOFF.md`, `architecture.md`,
+`PERFORMANCE.md`, `internal/AFRICA_ROLLOUT.md`).
 
 ---
 
@@ -65,7 +65,7 @@ saint-helena-ascension-and-tristan-da-cunha.
 | `/Users/noeflandre/osm-polygon-selection/data/` | <100 MB | Reference data only |
 
 The pipeline reads PBFs and writes parquet to the HDD only. Never
-to local SSD. See `docs/AGENT_HANDOFF.md` for the storage policy.
+to local SSD. See `docs/internal/AGENT_HANDOFF.md` for the storage policy.
 
 ---
 
