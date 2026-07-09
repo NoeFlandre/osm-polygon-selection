@@ -16,7 +16,7 @@ For the single source of truth, see
 
 from __future__ import annotations
 
-from osm_polygon_selection.regional_pbf_meta import (
+from osm_polygon_selection.pbf_meta.regional import (
     ALL_REGIONAL_CANONICAL as ALL_REGIONAL,
     REGIONAL_SUB_PBFS_CANONICAL as REGIONAL_CHILDREN,
 )

@@ -16,9 +16,9 @@ from __future__ import annotations
 
 
 def test_canonical_module_is_the_only_source() -> None:
-    """The canonical map is defined in regional_pbf_meta and exposed
+    """The canonical map is defined in pbf_meta.regional and exposed
     to consumers as REGIONAL_SUB_PBFS_CANONICAL."""
-    from osm_polygon_selection.regional_pbf_meta import (
+    from osm_polygon_selection.pbf_meta.regional import (
         ALL_REGIONAL_CANONICAL,
         REGIONAL_SUB_PBFS_CANONICAL,
     )
@@ -41,7 +41,7 @@ def test_countries_derives_from_canonical() -> None:
         ALL_REGIONAL,
         REGIONAL_CHILDREN,
     )
-    from osm_polygon_selection.regional_pbf_meta import (
+    from osm_polygon_selection.pbf_meta.regional import (
         ALL_REGIONAL_CANONICAL,
         REGIONAL_SUB_PBFS_CANONICAL,
     )
@@ -91,5 +91,5 @@ def test_no_parallel_inline_dict_in_countries_or_country_notes() -> None:
         assert "# All regional" not in src, (
             f"{mod.__name__} re-introduced a parallel inline regional dict"
         )
-        # The data is sourced from regional_pbf_meta instead.
-        assert "regional_pbf_meta" in src
+        # The data is sourced from pbf_meta.regional instead.
+        assert "pbf_meta" in src

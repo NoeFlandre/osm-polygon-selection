@@ -155,7 +155,7 @@ without downloading.
 
 ## Scripts Conventions
 
-`scripts/run_country.sh <name> [stage0_limit]` is the
+`scripts/operations/run_country.sh <name> [stage0_limit]` is the
 end-to-end-per-country entry point. It downloads (if missing),
 extracts, filters, classifies. Use it instead of running the four
 stage scripts individually.
@@ -265,7 +265,7 @@ Tested behavior:
 
 - [ ] `uv run pytest tests/ -v` passes
 - [ ] `uv run mypy src/osm_polygon_selection/` clean
-- [ ] Liechtenstein (or any small country) end-to-end: `scripts/run_country.sh andorra`
+- [ ] Liechtenstein (or any small country) end-to-end: `scripts/operations/run_country.sh andorra`
   produces 03_classified.jsonl with N polygons matching
   236-key whitelist, all in `Europe` continent
 - [ ] `.progress.json` readable mid-run, `run.json` final
@@ -277,7 +277,7 @@ Tested behavior:
 **Run a small country end-to-end:**
 ```bash
 OSM_DATA_ROOT="/Volumes/Seagate M3/osm-polygon-selection" \
-  scripts/run_country.sh monaco
+  scripts/operations/run_country.sh monaco
 ```
 
 **Sample 300 polygons across all processed countries + visualize:**

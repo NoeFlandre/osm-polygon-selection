@@ -1,12 +1,16 @@
 #!/bin/bash
 # Complete stages 2+3 for any country that has 01_extracted.jsonl
 # but no 03_classified.jsonl yet.
-# Usage: ./scripts/complete_pipeline.sh <country>
+# Usage: ./scripts/operations/complete_pipeline.sh <country>
+#
+# Env vars (maintainer-only):
+#   OSM_DATA_ROOT  - the maintainer HDD root (default:
+#                    sibling-of-repo osm-polygon-selection).
 
 set -e
 
 COUNTRY="$1"
-HDD="/Volumes/Seagate M3/osm-polygon-selection"
+HDD="${OSM_DATA_ROOT:-/Volumes/Seagate M3/osm-polygon-selection}"
 PROC="$HDD/processed/$COUNTRY"
 SRC="$PROC/01_extracted.jsonl"
 FILT="$PROC/02_filtered.jsonl"
@@ -24,7 +28,7 @@ if [ -f "$CLS" ]; then
 fi
 
 if [ ! -f "$SRC" ]; then
-    echo "$COUNTRY: no extract yet, run scripts/run_country.sh $COUNTRY first"
+    echo "$COUNTRY: no extract yet, run scripts/operations/run_country.sh $COUNTRY first"
     exit 1
 fi
 

@@ -52,7 +52,7 @@ is).
 
 ### The optimization
 
-1. **RED test**: 3 new tests in `tests/test_make_split.py`:
+1. **RED test**: 3 new tests in `tests/splitting/test_per_country.py`:
    - `test_per_country_parquets_not_rewritten_after_split`
      (mtime check).
    - `test_per_country_parquets_have_no_split_column_after_split`

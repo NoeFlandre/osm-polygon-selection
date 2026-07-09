@@ -9,14 +9,23 @@ country output.
 
 Each regional PBF processes in a few minutes, yielding 10k-100k
 polygons. Together they cover the whole country.
+
+Env vars:
+- ``OSM_DATA_ROOT``: maintainer HDD root. Default: sibling-of-repo
+  ``osm-polygon-selection`` (via ``RuntimeConfig``).
+- ``OSM_REPO_ROOT``: project root for ``cwd`` of stage 0 subprocess.
+  Default: ``Path.cwd().resolve()``.
 """
 
 import argparse
+import os
 import subprocess
 import sys
 from pathlib import Path
 
-DATA_ROOT = Path("/Volumes/Seagate M3/osm-polygon-selection")
+from osm_polygon_selection.runtime_config import RuntimeConfig
+
+DATA_ROOT = RuntimeConfig.from_env().data_root
 RAW_DIR = DATA_ROOT / "raw"
 PROCESSED_DIR = DATA_ROOT / "processed"
 
@@ -51,13 +60,14 @@ def extract_region(region: str, pbf: Path, country: str, max_seconds: int = 600)
     country_dir.mkdir(parents=True, exist_ok=True)
     out = country_dir / f"01_extracted_{region}.jsonl"
     print(f"[{region}] extracting to {out.name} ...", flush=True)
-    res = subprocess.run(
+    repo_root = Path(os.environ.get("OSM_REPO_ROOT", Path.cwd().resolve()))
+    subprocess.run(
         [
             "uv", "run", "scripts/stage0_extract.py",
             str(pbf), str(out),
             "--max-seconds", str(max_seconds),
         ],
-        cwd=Path("/Users/noeflandre/osm-polygon-selection"),
+        cwd=str(repo_root),
         capture_output=True,
         text=True,
     )

@@ -1,14 +1,19 @@
 #!/bin/bash
 # Run the full pipeline on one country.
-# Usage: ./scripts/run_country.sh <geofabrik_name> [stage0_limit]
-# Example: ./scripts/run_country.sh andorra
-#          ./scripts/run_country.sh belgium 5000
+# Usage: ./scripts/operations/run_country.sh <geofabrik_name> [stage0_limit]
+# Example: ./scripts/operations/run_country.sh andorra
+#          ./scripts/operations/run_country.sh belgium 5000
+#
+# Env vars (maintainer-only):
+#   OSM_DATA_ROOT  - the maintainer HDD root (default:
+#                    sibling-of-repo osm-polygon-selection, or whatever
+#                    RuntimeConfig.from_env() returns).
 
 set -e
 
 COUNTRY="$1"
 LIMIT="${2:-}"  # empty = no limit (run to completion)
-HDD="/Volumes/Seagate M3/osm-polygon-selection"
+HDD="${OSM_DATA_ROOT:-/Volumes/Seagate M3/osm-polygon-selection}"
 RAW="$HDD/raw"
 PROC="$HDD/processed/$COUNTRY"
 PBF="$RAW/${COUNTRY}-latest.osm.pbf"

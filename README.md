@@ -16,7 +16,8 @@ per-country parquets.
 ## Quickstart (TL;DR for a fresh session)
 
 ```bash
-# 1. Set the HDD env vars (CRITICAL — see docs/internal/AGENT_HANDOFF.md)
+# 1. Set the HDD env vars (maintainer/operator setup; public users
+#    do not need these unless they are running the pipeline locally).
 export OSM_DATA_ROOT="/Volumes/Seagate M3/osm-polygon-selection"
 export OSM_DATASET_DIR="/Volumes/Seagate M3/osm-polygon-selection/dataset"
 
@@ -24,11 +25,11 @@ export OSM_DATASET_DIR="/Volumes/Seagate M3/osm-polygon-selection/dataset"
 ls $OSM_DATA_ROOT/{raw,processed,dataset}
 ls $OSM_DATASET_DIR/{combined,per_country,splits,sample,preview}
 
-# 3. Run the test suite — must be ≥ 278 passing
+# 3. Run the test suite (must be all green before any commit)
 uv run pytest tests/ --deselect tests/stages/test_extract_perf.py::TestWallClockCap::test_wall_clock_cap_stops_clean
 
 # 4. Add a new country end-to-end:
-cd /Users/noeflandre/osm-polygon-selection
+cd /path/to/osm-polygon-selection
 COUNTRY=mayotte        # smallest unprocessed African
 mkdir -p $OSM_DATA_ROOT/processed/$COUNTRY
 curl -L -o $OSM_DATA_ROOT/raw/$COUNTRY-latest.osm.pbf \
@@ -54,30 +55,26 @@ OSM_DATASET_DIR=$OSM_DATASET_DIR uv run scripts/organize_dataset.py \
 OSM_DATASET_DIR=$OSM_DATASET_DIR uv run scripts/sample_for_map.py
 OSM_DATASET_DIR=$OSM_DATASET_DIR uv run scripts/make_split.py
 uv run scripts/visualize.py $OSM_DATASET_DIR/sample/sample_map.jsonl /tmp/map.html
-uv run scripts/render_map_screenshot.py
+uv run scripts/operations/render_map_screenshot.py
 cp data/dataset/map_preview.png $OSM_DATASET_DIR/preview/map_preview.png
 uv run scripts/upload_to_hf.py
 ```
 
-**Always** read `docs/internal/AGENT_HANDOFF.md` before doing anything. It
-captures all the conventions, gotchas, TDD workflow, and storage
-policy that took months to learn.
+If you plan to operate the pipeline yourself, also read
+`docs/internal/AGENT_HANDOFF.md` — it captures conventions, gotchas,
+TDD workflow, and the maintainer-side storage policy.
 
 ---
 
 ## What's in the dataset
 
-| Region              | Countries | Polygons |
-|---------------------|----------:|---------:|
-| Europe              |        49 | 7,302,782 |
-| North Africa        |         4 |   96,768 |
-| Sub-Saharan Africa  |        25 |   90,689 |
-| **Total**           |    **78** | **7,490,239** |
+See the published dataset manifest for current per-country counts.
+The combined parquet contains every OSM polygon meeting the filter
+criteria; per-country parquets live under `per_country/<country>/`.
+The top-of-README summary numbers (`284 countries`,
+`14,197,463 polygons`) are the latest published snapshot.
 
-(The continent breakdown is approximate; the per-country numbers are
-exact. See `dataset/manifest.json` for the machine-readable source.)
-
-Each row in `combined/all_europe.parquet` is one OSM polygon (closed
+Each row in `combined/all_world.parquet` is one OSM polygon (closed
 way or multipolygon relation) that:
 
 1. Survived the size filter (`0.1 ≤ area_km2 ≤ 100`).
@@ -232,10 +229,10 @@ Then dataset assembly:
 
 ```
 build_dataset.py     03_classified.jsonl per country -> per_country/<c>/<c>.parquet
-                                                  -> combined/all_europe.parquet
+                                                  -> combined/all_world.parquet
 organize_dataset.py  flat dataset/  ->  per_country/, combined/, sample/, preview/
 sample_for_map.py    combined       ->  sample/sample_map.jsonl (5000 stratified)
-make_split.py        combined       ->  combined/all_europe.parquet (with split col)
+make_split.py        combined       ->  combined/all_world.parquet (with split col)
                                        + splits/split_manifest.json
 upload_to_hf.py      dataset/       ->  HuggingFace dataset (NoeFlandre/...)
 ```
@@ -275,7 +272,7 @@ src/osm_polygon_selection/      library modules (importable)
   git_meta.py                   git_short_sha() for HF repo card
   extract_status.py             "clean" vs "killed" classifier
 
-scripts/                        CLI entry points (one per stage)
+scripts/                        public CLI entry points (one per stage)
   stage0_extract.py             Stage 0 (with --max-seconds + --limit caps)
   stage1_build_whitelist.py     Stage 1 (one-time per machine)
   stage2_filter.py              Stage 2
@@ -283,20 +280,28 @@ scripts/                        CLI entry points (one per stage)
   build_dataset.py              Stage 0-3 outputs -> parquet dataset
   organize_dataset.py           flat dataset/ -> HF viewer layout
   sample_for_map.py             combined -> 5000-row stratified sample
+  split_parquets.py             split combined parquet -> train/val/test parquets
   make_split.py                 train/val/test split (seed=42)
   upload_to_hf.py               push to HuggingFace
   visualize.py                  JSONL -> interactive HTML map (folium)
-  render_map_screenshot.py      HTML -> static map_preview.png
-  run_country.sh                one-country shortcut
-  run_europe.py                 legacy loop driver
+  operations/                   maintainer-only operational scripts
+    complete_pipeline.sh          one-shot end-to-end driver
+    run_country.sh                one-country shortcut
+    run_europe.py                 legacy Europe loop driver
+    process_country_regions.py    sub-region batch driver
+    render_map_screenshot.py      HTML -> static map_preview.png
 
-tests/                          pytest suite (280 tests, 278 passing)
+tests/                          pytest suite (~490 tests across 10 sub-folders)
   core/                         primitive tests
   stages/                       per-stage tests
-  test_*.py                     per-script integration tests
-                                (build_dataset, make_split, sample_for_map,
-                                 organize_dataset, upload_to_hf, pbf_meta,
-                                 readme_render, ...)
+  dataset_build/                build_dataset + readme tests
+  sampling/                     sample_for_map tests
+  splitting/                    make_split + split_parquets tests
+  io/                           streaming writer + schema tests
+  metadata/                     pbf_meta + paths + git_meta tests
+  scripts/                      per-script CLI / arg parsing tests
+  readme/                       readme renderer tests
+  docs/                         public-doc consistency tests
 
 data/                           LOCAL-ONLY (gitignored, NOT the source of truth)
   reference/                    static reference data
@@ -340,7 +345,7 @@ See `docs/internal/AGENT_HANDOFF.md` for the full storage policy.
 ## Tests
 
 ```bash
-# Must stay ≥ 390 passing before any commit
+# Run the full test suite (deselect the known-flaky perf test).
 uv run pytest tests/ \
   --deselect tests/stages/test_extract_perf.py::TestWallClockCap::test_wall_clock_cap_stops_clean
 ```
@@ -365,7 +370,7 @@ Final dataset published at:
 
 - **Repo:** `NoeFlandre/osm-polygon-selection` (dataset type)
 - **Layout:** `per_country/<country>/{README.md, <country>.parquet}`,
-  `combined/{README.md, all_europe.parquet}`, `sample/`, `preview/`,
+  `combined/{README.md, all_world.parquet}`, `sample/`, `preview/`,
   root `README.md`, `manifest.json`, `metadata.yaml`.
 - **Compression:** zstd level 1 (~36% smaller than snappy).
 - **Row group size:** 50k rows (~50-60 MB per group, well under
