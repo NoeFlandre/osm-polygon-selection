@@ -1,44 +1,27 @@
-"""Thin CLI for the dataset sample-for-map pipeline.
+"""Backwards-compat launcher for ``scripts/dataset/sample_for_map.py``.
 
-Delegates to ``osm_polygon_selection.sampling.runner.run_sample_for_map``.
-
-Re-exports ``power_law_alloc``, ``grid_sample_country``, and the
-``FLOOR`` / ``CAP`` / ``POWER`` / ``GEO_COLS`` / ``ALL_COLS``
-constants for backwards-compat with tests that import them
-from the script.
+Re-exports the sampling-package symbols
+(``power_law_alloc``, ``grid_sample_country``, the
+``FLOOR``/``CAP``/``POWER``/``GEO_COLS``/``ALL_COLS``
+constants, and ``pyarrow.parquet as pq``) for tests that import
+them from the script path.
 """
 
 from __future__ import annotations
 
-import sys
+import runpy
 from pathlib import Path
 
-import pyarrow.parquet as pq  # noqa: F401 (re-exported)
+import pyarrow.parquet as pq  # noqa: F401
 
-from osm_polygon_selection.paths import dataset_root
-from osm_polygon_selection.runtime_config import RuntimeConfig
-from osm_polygon_selection.sampling import (
-    ALL_COLS,  # noqa: F401
-    CAP,  # noqa: F401
-    DEFAULT_OUT_PATH,
-    FLOOR,  # noqa: F401
-    GEO_COLS,  # noqa: F401
-    POWER,  # noqa: F401
-    grid_sample_country,
-    power_law_alloc,
+from scripts.dataset.sample_for_map import (  # noqa: F401
+    ALL_COLS, CAP, DATASET_ROOT, DEFAULT_OUT_PATH, FLOOR, GEO_COLS,
+    POWER, PROCESSED_ROOT, grid_sample_country, main, power_law_alloc,
     run_sample_for_map,
 )
 
-PROCESSED_ROOT = RuntimeConfig.from_env().processed_root
-DATASET_ROOT = dataset_root()  # noqa: F401 (re-exported)
-OUT_PATH = Path(sys.argv[1]) if len(sys.argv) > 1 else DEFAULT_OUT_PATH
-
-
-def main() -> None:
-    run_sample_for_map(PROCESSED_ROOT, out_path=OUT_PATH)
-
-
 if __name__ == "__main__":
-    main()
-
-
+    runpy.run_path(
+        str(Path(__file__).resolve().parent / "dataset" / "sample_for_map.py"),
+        run_name="__main__",
+    )

@@ -123,76 +123,108 @@ Quick summary:
 | Build discovery          | `dataset_build.discovery`          |
 | Build whitelist cache    | `dataset_build.whitelist`          |
 | Build artifacts          | `dataset_build.artifacts`          |
+| Build legacy script shims | `dataset_build.script_compat`     |
 | Organize orchestration   | `dataset_organize.runner`          |
 | Organize READMEs         | `dataset_organize.readmes`         |
 | Organize manifests       | `dataset_organize.manifests`       |
 | All README renderers     | `readme`                           |
+| Per-country markdown table | `readme.tables`                  |
 | Long-form README text    | `readme.templates`                 |
 | Sample-for-map sampling  | `sampling`                         |
-| Streaming JSONL writer   | `parquet_write` (facade: `streaming_writer`) |
+| Streaming JSONL writer   | `parquet_write`                    |
 | Train/val/test split     | `dataset_split`                    |
-| Sample-table renderers   | `sample_tables` (facade: `sample_table`) |
+| Sample-table renderers   | `sample_tables`                    |
 | Stage 0/2/3              | `stages` (stage 0 split into `stages.extract_stage`) |
 | PBF metadata             | `pbf_meta`                         |
 | Curated country notes    | `country_notes`                    |
+| Schema definitions       | `schema`                           |
+| Visualization (folium)   | `visualization`                    |
+| HF dataset upload        | `hf_upload`                        |
+| Runtime config           | `config`                           |
+| Project + dataset paths  | `config.paths`                     |
+| Git SHA / repo root      | `config.git`                       |
+| Dataset folder layout    | `dataset_layout`                   |
+| Whitelist I/O + matched_tag | `io.whitelist`                  |
+| PyArrow compat shims     | `io.pyarrow_compat`                |
+| Extract status check     | `stages.status`                    |
+| Maintainer operations    | `operations` (downloads, subprocesses, europe_loop, regions, screenshot, cli) |
+| Per-script CLI entry points | `cli.<name>`                    |
+| Legacy import aliases    | `compat`                           |
 
 ## Canonical import paths
 
 Each domain owns a subpackage. **Domain packages import from
 their canonical locations, never from a root-level facade.**
-Root-level facades exist only for backwards-compat with existing
-importers; new code should not depend on them.
+The root-level aliases exist only for backwards-compat with
+existing importers; new code should not depend on them.
 
-| Concern                  | Canonical import                          | Backwards-compat facade |
-|--------------------------|-------------------------------------------|-------------------------|
-| PBF metadata             | `osm_polygon_selection.pbf_meta`          | `osm_polygon_selection.pbf_meta` (was a single file) |
-| Regional sub-PBF map     | `osm_polygon_selection.pbf_meta.regional` | `osm_polygon_selection.regional_pbf_meta` |
-| Curated country notes    | `osm_polygon_selection.country_notes`     | (was a single file `country_notes.py`) |
-| Train/val/test split     | `osm_polygon_selection.dataset_split`     | `scripts.make_split` (re-exports `_add_split_column_streaming` / `_write_combined_streaming`) |
-| Sample-table renderers   | `osm_polygon_selection.sample_tables`     | `osm_polygon_selection.sample_table` |
-| Streaming JSONL writer   | `osm_polygon_selection.parquet_write`     | `osm_polygon_selection.streaming_writer` |
-| Stage 0 extract          | `osm_polygon_selection.stages.extract_stage` | `osm_polygon_selection.stages.extract` |
-| README renderers         | `osm_polygon_selection.readme`            | `osm_polygon_selection.readme_render` |
-| Config / runtime paths   | `osm_polygon_selection.runtime_config`, `osm_polygon_selection.paths` | (root modules) |
+The complete list of legacy root-level paths and their
+canonical targets is in the [Compatibility imports](#compatibility-imports)
+section above.
 
 If you add a new domain module, prefer creating a subpackage
 rather than adding to `src/osm_polygon_selection/<name>.py`.
 
-## Compatibility facades at the src root
+## Compatibility imports
 
-Several root-level modules are **thin compatibility facades**
-that re-export symbols from a subpackage. They exist so existing
-imports (`from osm_polygon_selection.<name> import ...`) keep
-working after a refactor splits the module into a subpackage.
+The package root (`src/osm_polygon_selection/`) contains exactly
+**one** Python file: `__init__.py`. Every other public concern
+lives in a subpackage.
 
-Current facades (root-level module → canonical subpackage):
+Legacy import paths such as
+``from osm_polygon_selection.country_table import build_country_table``
+keep working through a `sys.modules` alias installed at package
+import time (see
+:mod:`osm_polygon_selection.compat.import_aliases`). Each
+alias maps a legacy root-level name to its canonical subpackage:
 
-- `streaming_writer.py` → `parquet_write/`
-- `sample_table.py` → `sample_tables/`
-- `readme_render.py` → `readme/`
-- `regional_pbf_meta.py` → `pbf_meta/regional`
+| Legacy path | Canonical subpackage |
+|-------------|----------------------|
+| `osm_polygon_selection.country_table` | `osm_polygon_selection.readme.tables` |
+| `osm_polygon_selection.extract_status` | `osm_polygon_selection.stages.status` |
+| `osm_polygon_selection.git_meta` | `osm_polygon_selection.config.git` |
+| `osm_polygon_selection.paths` | `osm_polygon_selection.config.paths` |
+| `osm_polygon_selection.pyarrow_compat` | `osm_polygon_selection.io.pyarrow_compat` |
+| `osm_polygon_selection.runtime_config` | `osm_polygon_selection.config.runtime` |
+| `osm_polygon_selection.whitelist_io` | `osm_polygon_selection.io.whitelist` |
+| `osm_polygon_selection.schema_defs` | `osm_polygon_selection.schema` |
+| `osm_polygon_selection.sample_table` | `osm_polygon_selection.sample_tables` |
+| `osm_polygon_selection.readme_render` | `osm_polygon_selection.readme` |
+| `osm_polygon_selection.regional_pbf_meta` | `osm_polygon_selection.pbf_meta.regional` |
+| `osm_polygon_selection.streaming_writer` | `osm_polygon_selection.parquet_write.runner` |
 
-When you delete a facade, run the test suite first to surface
-all callers; the canonical subpackage is the only stable
-import path going forward.
+The list of legacy aliases is the **single source of truth** in
+`osm_polygon_selection.compat.import_aliases.LEGACY_ALIASES`.
 
 ## Scripts: public CLI vs internal operation
 
-The `scripts/` directory contains two tiers:
+The `scripts/` directory is organized into subfolders by concern.
+Each subfolder holds the canonical executable scripts; the
+root-level `scripts/*.py` files are thin backwards-compat
+launchers that call into the canonical script via
+`runpy.run_path` (or re-execute the canonical source in the
+root module's namespace for tests that mutate module globals).
 
-| Path                          | Audience    | Notes |
-|-------------------------------|-------------|-------|
-| `scripts/stage0_extract.py` … `scripts/upload_to_hf.py` | Public | One CLI per pipeline stage. Thin wrappers; no domain logic. |
-| `scripts/sample_for_map.py`   | Public      | Grid-stratified sample. |
-| `scripts/visualize.py`        | Public      | JSONL → interactive folium map. |
-| `scripts/operations/*.py`     | Maintainer  | HDD-only operations (legacy loop driver, sub-region batch, screenshot capture, one-country shortcut). |
-| `scripts/operations/*.sh`    | Maintainer  | Shell shortcuts. Honor `$OSM_DATA_ROOT`. |
+| Path | Audience | Notes |
+|------|----------|-------|
+| `scripts/pipeline/stage0_extract.py` … `stage3_classify.py` | Public | One CLI per pipeline stage. |
+| `scripts/dataset/build_dataset.py` | Public | PBF -> per-country parquet + README. |
+| `scripts/dataset/organize_dataset.py` | Public | Move files into the canonical layout. |
+| `scripts/dataset/make_split.py` | Public | Deterministic train/val/test split. |
+| `scripts/dataset/split_parquets.py` | Public | Per-split parquet files for HF viewer. |
+| `scripts/dataset/sample_for_map.py` | Public | Small sample for folium preview. |
+| `scripts/publishing/upload_to_hf.py` | Public | Upload to HuggingFace. |
+| `scripts/preview/visualize.py` | Public | Render the folium preview map. |
+| `scripts/operations/*.py` | Maintainer | HDD-only operator tools. |
+| `scripts/operations/*.sh` | Maintainer | Shell shortcuts. |
+| `scripts/*.py` (root) | Public | Backwards-compat launchers (~10-13 LOC). |
 
 Public scripts must be **thin**: parse argv, call a package
-`runner.run_*`, print results. No business logic in the script
-itself. Internal/operational scripts (`scripts/operations/`) may
-have hard-coded maintainer paths that are `$OSM_DATA_ROOT`-
-overridable.
+`runner.run_*` or `cli.<name>.main`, print results. No business
+logic in the script itself. The root-level
+`scripts/<name>.py` files exist so old
+``uv run scripts/<name>.py`` invocations keep working; new code
+should use the canonical subfolder paths.
 
 ## Generated docs and templates
 

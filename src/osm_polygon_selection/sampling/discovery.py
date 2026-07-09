@@ -11,7 +11,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from osm_polygon_selection.paths import dataset_root
+from osm_polygon_selection.config import dataset_root
 
 EXTRA_ROOTS: tuple[Path, ...] = (
     Path("/Volumes/Seagate M3/osm-polygon-selection/dataset"),

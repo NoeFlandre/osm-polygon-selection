@@ -1,4 +1,4 @@
-"""Tests for scripts/sample_for_map.py.
+"""Tests for the sampling domain (formerly scripts/sample_for_map.py).
 
 TDD red phase: written before optimizing the hot path.
 
@@ -12,14 +12,16 @@ These tests pin the **public, observable behavior** of
 - deterministic for a fixed seed
 - vectorized path produces the same output as the slow path
   (zero-regression on the optimized implementation)
+
+Domain behavior is imported from
+:mod:`osm_polygon_selection.sampling`; the script is a thin CLI
+wrapper around ``run_sample_for_map``.
 """
 
 from __future__ import annotations
 
-import importlib.util
 import math
 import random
-import sys
 from pathlib import Path
 
 import numpy as np
@@ -27,18 +29,12 @@ import pyarrow as pa
 import pyarrow.parquet as pq
 import pytest
 
-SCRIPTS_DIR = Path(__file__).resolve().parents[2] / "scripts"
-SAMPLE_FOR_MAP = SCRIPTS_DIR / "sample_for_map.py"
+from osm_polygon_selection import sampling
 
 
 def _load():
-    spec = importlib.util.spec_from_file_location("sample_for_map", SAMPLE_FOR_MAP)
-    if spec is None or spec.loader is None:
-        raise ImportError(f"could not load {SAMPLE_FOR_MAP}")
-    mod = importlib.util.module_from_spec(spec)
-    sys.modules["sample_for_map"] = mod
-    spec.loader.exec_module(mod)
-    return mod
+    """Return the sampling package (domain behavior lives here)."""
+    return sampling
 
 
 def _make_country_parquet(
@@ -156,7 +152,12 @@ class TestGridSampleCountry:
         pq_path = tmp_path / "italy" / "italy.parquet"
         _make_country_parquet(pq_path, n=1_000)
 
-        # Wrap pq.ParquetFile to count instantiations.
+        # Wrap pq.ParquetFile to count instantiations globally.
+        # The sampling package spreads the import across bbox.py,
+        # winners.py, and topup.py — patching the module attribute
+        # on each is brittle, so we patch ``pyarrow.parquet`` at
+        # its source and let the package pick up the wrapped
+        # constructor via attribute access.
         import pyarrow.parquet as _pq
 
         original = _pq.ParquetFile
@@ -167,8 +168,12 @@ class TestGridSampleCountry:
             return original(*args, **kwargs)
 
         monkeypatch.setattr(_pq, "ParquetFile", _counting_pq)
-        # Also patch where the module references it.
-        monkeypatch.setattr(sf.pq, "ParquetFile", _counting_pq)
+        # Also re-bind the module reference in the sub-modules that
+        # imported it as ``import pyarrow.parquet as pq``.
+        from osm_polygon_selection.sampling import bbox, topup, winners
+        monkeypatch.setattr(bbox, "pq", _pq)
+        monkeypatch.setattr(topup, "pq", _pq)
+        monkeypatch.setattr(winners, "pq", _pq)
 
         sf.grid_sample_country(pq_path, target_n=50, rng=random.Random(42))
         # The optimized path opens the parquet at most twice

@@ -91,7 +91,7 @@ class TestDatasetDir:
     """The dataset output directory is configurable via OSM_DATASET_DIR."""
 
     def test_default_dataset_dir_under_repo(self) -> None:
-        from osm_polygon_selection.paths import dataset_root, project_root
+        from osm_polygon_selection.config import dataset_root, project_root
         default = dataset_root()
         # default is a sibling of the project repo (ext-HDD-friendly)
         assert default.name == "osm-polygon-selection-dataset"
@@ -99,7 +99,7 @@ class TestDatasetDir:
 
     def test_external_hdd_overrides(self, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.setenv("OSM_DATASET_DIR", "/Volumes/Seagate M3/test")
-        from osm_polygon_selection.paths import dataset_root
+        from osm_polygon_selection.config import dataset_root
         assert str(dataset_root()) == "/Volumes/Seagate M3/test"
 
 
@@ -144,12 +144,29 @@ class TestScriptWrappers:
             sys.modules.pop("build_dataset", None)
 
     def test_main_delegates_to_run_build_dataset(self) -> None:
-        """``main()`` should call ``runner.run_build_dataset()``.
+        """``main()`` should call the CLI runner.
 
-        Verified statically: the script's ``main`` body must
-        reference ``run_build_dataset`` (the package runner).
+        Verified statically: the script's source must include a
+        call to the CLI ``main`` (which calls
+        ``run_build_dataset``).
         """
         src = BUILD_DATASET_PATH.read_text()
-        # The runner call is the only thing main() does.
-        assert "def main() -> None:" in src
-        assert "run_build_dataset()" in src
+        # The script delegates to the cli/build_dataset module
+        # which calls run_build_dataset. The canonical main
+        # definition must be reachable from the root script
+        # (either via direct re-export or via the exec trick).
+        # We assert the cli module's main is wired to
+        # run_build_dataset, and that the canonical script file
+        # contains a main() that delegates to the cli.
+        canonical = (
+            Path(__file__).resolve().parents[2]
+            / "scripts" / "dataset" / "build_dataset.py"
+        )
+        canonical_src = canonical.read_text()
+        assert "def main() -> None:" in canonical_src
+        assert "_cli_main" in canonical_src
+        # And the cli module does the actual call.
+        from osm_polygon_selection.cli.build_dataset import main as cli_main
+        import inspect
+        cli_src = inspect.getsource(cli_main)
+        assert "run_build_dataset" in cli_src

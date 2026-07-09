@@ -27,7 +27,7 @@ def maybe_backfill_matched_tag(
     needs_fill = [i for i, m in enumerate(matched) if not m]
     if not needs_fill:
         return
-    from osm_polygon_selection.whitelist_io import (
+    from osm_polygon_selection.io.whitelist import (
         clear_whitelist_cache,
         load_whitelist,
         vectorized_compute_matched_tags,
@@ -50,7 +50,7 @@ def maybe_backfill_matched_tag_pa(
     needs_fill_idx = [i for i, m in enumerate(matched) if not m]
     if not needs_fill_idx:
         return table
-    from osm_polygon_selection.whitelist_io import (
+    from osm_polygon_selection.io.whitelist import (
         clear_whitelist_cache,
         load_whitelist,
         vectorized_compute_matched_tags,

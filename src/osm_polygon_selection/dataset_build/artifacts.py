@@ -18,7 +18,7 @@ from osm_polygon_selection.dataset_build.manifest import (
     schema_columns,
     write_manifest,
 )
-from osm_polygon_selection.git_meta import git_sha
+from osm_polygon_selection.config import git_sha
 from osm_polygon_selection.readme import write_metadata_yaml, write_readme
 
 

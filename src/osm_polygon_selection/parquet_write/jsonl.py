@@ -18,7 +18,7 @@ import pyarrow.parquet as pq
 from osm_polygon_selection.parquet_write.atomic import atomic_write_parquet
 from osm_polygon_selection.parquet_write.matched_tags import maybe_backfill_matched_tag
 from osm_polygon_selection.parquet_write.transform import build_columns
-from osm_polygon_selection.schema_defs import build_schema
+from osm_polygon_selection.schema import build_schema
 
 
 def write_jsonl_to_parquet_python_json(

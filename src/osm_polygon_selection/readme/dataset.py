@@ -21,12 +21,12 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Iterable, Mapping
 
-from osm_polygon_selection.country_table import build_country_table
+from osm_polygon_selection.readme.tables import build_country_table
 from osm_polygon_selection.readme.templates import (
     DATASET_README_BODY,
     YAML_FRONTMATTER,
 )
-from osm_polygon_selection.sample_table import (
+from osm_polygon_selection.sample_tables import (
     build_example_row_table,
     build_size_bin_distribution_table,
     compute_global_size_bin_distribution,

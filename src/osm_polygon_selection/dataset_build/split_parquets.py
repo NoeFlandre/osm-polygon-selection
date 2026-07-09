@@ -19,7 +19,7 @@ from typing import Final
 import pyarrow as pa
 import pyarrow.parquet as pq
 
-from osm_polygon_selection.pyarrow_compat import equal
+from osm_polygon_selection.io.pyarrow_compat import equal
 
 __all__ = ["write_split_parquets"]
 

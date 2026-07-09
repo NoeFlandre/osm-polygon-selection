@@ -10,7 +10,7 @@ from pathlib import Path
 
 import pytest
 
-from osm_polygon_selection.git_meta import git_sha, git_short_sha, repo_root
+from osm_polygon_selection.config import git_sha, git_short_sha, repo_root
 
 
 class TestGitShortSha:

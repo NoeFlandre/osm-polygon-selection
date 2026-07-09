@@ -10,7 +10,7 @@ from pathlib import Path
 
 import pytest
 
-from osm_polygon_selection.whitelist_io import (
+from osm_polygon_selection.io.whitelist import (
     clear_whitelist_cache,
     compute_matched_tag,
     load_whitelist,

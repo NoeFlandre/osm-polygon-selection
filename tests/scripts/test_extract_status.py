@@ -7,7 +7,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from osm_polygon_selection.extract_status import (
+from osm_polygon_selection.stages.status import (
     extract_status,
     is_country_clean,
 )

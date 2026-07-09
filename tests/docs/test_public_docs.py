@@ -48,6 +48,8 @@ FORBIDDEN = [
     ("tests/test_pbf_meta.py", "root-level test moved to tests/metadata/"),
     ("tests/dataset_organize", "directory does not exist; tests live in tests/dataset_build/"),
     ("9 sub-folders", "stale test-folder count; current layout is 10 sub-folders"),
+    ("agent runtime", "agent-era wording"),
+    ("agent call", "agent-era wording"),
 ]
 
 

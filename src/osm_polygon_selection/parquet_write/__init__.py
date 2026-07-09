@@ -5,6 +5,7 @@ Layout:
 - :mod:`.jsonl` — Python-JSONL per-row legacy writer
 - :mod:`.transform` — table transformation (build_columns, reshape)
 - :mod:`.matched_tags` — matched_tag backfill
+- :mod:`.runner` — public streaming JSONL -> parquet writer
 """
 
 from osm_polygon_selection.parquet_write.atomic import (
@@ -18,6 +19,10 @@ from osm_polygon_selection.parquet_write.matched_tags import (
     maybe_backfill_matched_tag,
     maybe_backfill_matched_tag_pa,
 )
+from osm_polygon_selection.parquet_write.runner import (
+    CHUNK_SIZE,
+    write_jsonl_to_parquet,
+)
 from osm_polygon_selection.parquet_write.transform import (
     build_columns,
     reshape_parsed_table,
@@ -25,6 +30,7 @@ from osm_polygon_selection.parquet_write.transform import (
 )
 
 __all__ = [
+    "CHUNK_SIZE",
     "atomic_write_empty_parquet",
     "atomic_write_parquet",
     "build_columns",
@@ -32,5 +38,6 @@ __all__ = [
     "maybe_backfill_matched_tag_pa",
     "reshape_parsed_table",
     "split_centroid",
+    "write_jsonl_to_parquet",
     "write_jsonl_to_parquet_python_json",
 ]

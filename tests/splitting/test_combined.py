@@ -6,7 +6,12 @@ import numpy as np
 import pyarrow as pa
 import pyarrow.parquet as pq
 
-from .conftest import _load_make_split, _make_country_table, _make_split_dataset
+from .conftest import (
+    _load_make_split,
+    _load_split_script,
+    _make_country_table,
+    _make_split_dataset,
+)
 
 
 def test_split_writes_split_column_to_parquet(tmp_path):
@@ -40,7 +45,7 @@ def test_split_writes_combined_parquet(tmp_path):
 
 def test_streaming_add_split_column_preserves_data(tmp_path):
     """Streaming helper preserves row count, data, and split column."""
-    ms = _load_make_split()
+    ms = _load_split_script()
     pq_path = tmp_path / "italy.parquet"
     pq.write_table(_make_country_table("italy", 1234), pq_path)
 
@@ -58,7 +63,7 @@ def test_streaming_add_split_column_preserves_data(tmp_path):
 
 def test_streaming_add_split_column_idempotent(tmp_path):
     """Re-running drops the existing split column first."""
-    ms = _load_make_split()
+    ms = _load_split_script()
     pq_path = tmp_path / "italy.parquet"
     pq.write_table(_make_country_table("italy", 100), pq_path)
 
@@ -75,7 +80,7 @@ def test_streaming_add_split_column_idempotent(tmp_path):
 
 def test_streaming_write_combined_preserves_all_rows(tmp_path):
     """Streaming combined-writer preserves row count + country coverage."""
-    ms = _load_make_split()
+    ms = _load_split_script()
     root = _make_split_dataset(tmp_path, {"albania": 50, "andorra": 30, "italy": 20})
     n_combined = ms._write_combined_streaming(root)
     assert n_combined == 100
@@ -89,7 +94,7 @@ def test_streaming_write_combined_preserves_all_rows(tmp_path):
 
 def test_streaming_write_combined_no_intermediate_concat_table(tmp_path, monkeypatch):
     """Streaming combined-writer must NOT call pa.concat_tables."""
-    ms = _load_make_split()
+    ms = _load_split_script()
     root = _make_split_dataset(tmp_path, {"albania": 50, "andorra": 30})
 
     import pyarrow as pa

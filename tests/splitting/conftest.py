@@ -2,27 +2,61 @@
 
 from __future__ import annotations
 
-import importlib.util
 import json
-import sys
 from pathlib import Path
+from typing import Any
 
 import numpy as np
 import pyarrow as pa
 import pyarrow.parquet as pq
 
-SCRIPTS_DIR = Path(__file__).resolve().parents[2] / "scripts"
-MAKE_SPLIT = SCRIPTS_DIR / "make_split.py"
+from osm_polygon_selection import dataset_split
+from osm_polygon_selection.dataset_split.combined import write_combined_streaming
+from osm_polygon_selection.dataset_split.config import DEFAULT_RATIOS, DEFAULT_SEED
+from osm_polygon_selection.dataset_split.per_parquet import (
+    add_split_column_streaming,
+)
 
 
 def _load_make_split():
-    spec = importlib.util.spec_from_file_location("make_split", MAKE_SPLIT)
-    if spec is None or spec.loader is None:
-        raise ImportError(f"could not load {MAKE_SPLIT}")
-    mod = importlib.util.module_from_spec(spec)
-    sys.modules["make_split"] = mod
-    spec.loader.exec_module(mod)
-    return mod
+    """Return the dataset_split package.
+
+    ``scripts/make_split.py`` is a thin CLI wrapper around
+    :mod:`osm_polygon_selection.dataset_split`; tests exercise the
+    domain behavior via the package directly to avoid importlib
+    script-loading.
+    """
+    return dataset_split
+
+
+# Compat shim: previous tests used ``ms._add_split_column_streaming``
+# and ``ms._write_combined_streaming`` (the script-level aliases
+# that ``make_split.py`` re-exports). We provide a tiny stub object
+# so legacy test code keeps working without importlib.
+class _SplitScript:
+    """Backwards-compat surface mirroring scripts/make_split.py."""
+
+    make_split = staticmethod(dataset_split.make_split)
+    _add_split_column_streaming = staticmethod(add_split_column_streaming)
+
+    @staticmethod
+    def _write_combined_streaming(
+        root: Path,
+        *,
+        seed: int = DEFAULT_SEED,
+        ratios: dict[str, float] | None = None,
+        manifest: dict | None = None,
+    ) -> int:
+        if ratios is None:
+            ratios = dict(DEFAULT_RATIOS)
+        return write_combined_streaming(
+            root, seed=seed, ratios=ratios, manifest=manifest,
+        )
+
+
+def _load_split_script() -> Any:
+    """Return the legacy ``scripts/make_split`` module surface."""
+    return _SplitScript()
 
 
 def _make_country_table(country: str, n: int, base_id: int = 1) -> pa.Table:

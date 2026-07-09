@@ -11,7 +11,7 @@ from typing import Mapping, TypedDict
 
 import pyarrow as pa
 
-from osm_polygon_selection.runtime_config import RuntimeConfig
+from osm_polygon_selection.config import RuntimeConfig
 
 # Default dataset root (from RuntimeConfig; honors $OSM_DATA_ROOT).
 DEFAULT_ROOT = RuntimeConfig.from_env().dataset_root

@@ -15,8 +15,8 @@ from pathlib import Path
 from typing import Mapping
 
 from osm_polygon_selection.dataset_build.config import PIPELINE_VERSION
-from osm_polygon_selection.git_meta import git_sha
-from osm_polygon_selection.schema_defs import build_schema
+from osm_polygon_selection.config import git_sha
+from osm_polygon_selection.schema import build_schema
 
 
 def zero_yield_row(country: str, extract_status: str, pbf_date: str) -> dict:

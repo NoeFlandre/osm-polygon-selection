@@ -8,12 +8,16 @@ Layout (one module per renderer, plus templates for long strings):
 - ``country`` — per-country READMEs.
 - ``metadata`` — HF ``metadata.yaml`` sidecar.
 - ``notes`` — country-note adapter around ``country_notes``.
+- ``tables`` — markdown table renderers (per-country, size-bin).
 - ``templates`` — long-form markdown / YAML template strings.
 
-``osm_polygon_selection.readme_render`` remains a thin facade
-importing the names here for backwards compatibility.
+``osm_polygon_selection.readme`` is the canonical home; legacy
+import paths (``osm_polygon_selection.readme_render``) are
+redirected here via ``sys.modules`` aliases in
+:mod:`osm_polygon_selection.compat.import_aliases`.
 """
 
+from osm_polygon_selection.country_notes import COUNTRY_NOTES  # noqa: F401
 from osm_polygon_selection.readme.country import build_country_readme
 from osm_polygon_selection.readme.dataset import (
     render_dataset_readme,
@@ -27,8 +31,13 @@ from osm_polygon_selection.readme.root import (
     build_root_readme,
 )
 
+# Legacy private alias: pre-split callers may still reference this.
+_country_note = country_note
+
 __all__ = [
+    "COUNTRY_NOTES",
     "PIPELINE_VERSION_DEFAULT",
+    "_country_note",
     "build_country_readme",
     "build_folder_readme",
     "build_root_readme",

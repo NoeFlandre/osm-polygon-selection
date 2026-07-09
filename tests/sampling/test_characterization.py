@@ -1,4 +1,4 @@
-"""Characterization tests for `scripts/sample_for_map.py` behavior we MUST preserve.
+"""Characterization tests for the sampling domain (formerly scripts/sample_for_map.py).
 
 These pin:
 
@@ -8,36 +8,30 @@ These pin:
 - Dataset root discovery: env var > RuntimeConfig > script default.
 - Deterministic output: same parquet fixture + same target_n + same
   rng seed -> same set of selected ids.
+
+Domain behavior is imported from
+:mod:`osm_polygon_selection.sampling`.
 """
 
 from __future__ import annotations
 
 import random
-import importlib.util
 from pathlib import Path
 
 import numpy as np
 import pyarrow as pa
 import pyarrow.parquet as pq
 
-
-def _load_sample_for_map_module():
-    """Import scripts/sample_for_map.py as a module."""
-    script_path = Path(__file__).resolve().parents[2] / "scripts" / "sample_for_map.py"
-    spec = importlib.util.spec_from_file_location("sample_for_map_under_test", script_path)
-    assert spec is not None and spec.loader is not None
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    return module
+from osm_polygon_selection import sampling
+from osm_polygon_selection.config import dataset_root
 
 
 def test_config_constants_match_current_values() -> None:
     """FLOOR, CAP, POWER, GEO_COLS must keep their current numeric values."""
-    sfm = _load_sample_for_map_module()
-    assert sfm.FLOOR == 8
-    assert sfm.CAP == 200
-    assert abs(sfm.POWER - 0.4) < 1e-9
-    assert sfm.GEO_COLS == ["centroid_lon", "centroid_lat"]
+    assert sampling.FLOOR == 8
+    assert sampling.CAP == 200
+    assert abs(sampling.POWER - 0.4) < 1e-9
+    assert sampling.GEO_COLS == ["centroid_lon", "centroid_lat"]
 
 
 def test_module_level_random_seed_does_not_affect_grid_sample(tmp_path: Path) -> None:
@@ -57,17 +51,15 @@ def test_module_level_random_seed_does_not_affect_grid_sample(tmp_path: Path) ->
     # First run: global state seeded with 1.
     random.seed(1)
     np.random.seed(1)
-    sfm = _load_sample_for_map_module()
     rng1 = random.Random(42)
-    sample1 = sfm.grid_sample_country(pq_path, target_n=64, rng=rng1)
+    sample1 = sampling.grid_sample_country(pq_path, target_n=64, rng=rng1)
     ids1 = sorted(r["osm_id"] for r in sample1)
 
     # Second run: very different global state, same local rng seed.
     random.seed(999_999_999)
     np.random.seed(999_999_999)
-    sfm2 = _load_sample_for_map_module()
     rng2 = random.Random(42)
-    sample2 = sfm2.grid_sample_country(pq_path, target_n=64, rng=rng2)
+    sample2 = sampling.grid_sample_country(pq_path, target_n=64, rng=rng2)
     ids2 = sorted(r["osm_id"] for r in sample2)
 
     assert ids1 == ids2, (
@@ -97,8 +89,6 @@ def _make_synthetic_country_parquet(path: Path, lons: list[float], lats: list[fl
 
 def test_grid_sample_country_is_deterministic(tmp_path: Path) -> None:
     """Same fixture + same target_n + same rng seed -> same selected ids."""
-    sfm = _load_sample_for_map_module()
-
     lons = [10.0 + 0.001 * i for i in range(500)] + [11.0 + 0.001 * i for i in range(500)]
     lats = [50.0 + 0.001 * i for i in range(500)] + [51.0 + 0.001 * i for i in range(500)]
     pq_path = tmp_path / "x.parquet"
@@ -106,8 +96,8 @@ def test_grid_sample_country_is_deterministic(tmp_path: Path) -> None:
 
     rng1 = random.Random(42)
     rng2 = random.Random(42)
-    sample1 = sfm.grid_sample_country(pq_path, target_n=64, rng=rng1)
-    sample2 = sfm.grid_sample_country(pq_path, target_n=64, rng=rng2)
+    sample1 = sampling.grid_sample_country(pq_path, target_n=64, rng=rng1)
+    sample2 = sampling.grid_sample_country(pq_path, target_n=64, rng=rng2)
     ids1 = sorted(r["osm_id"] for r in sample1)
     ids2 = sorted(r["osm_id"] for r in sample2)
     assert ids1 == ids2
@@ -117,6 +107,4 @@ def test_grid_sample_country_is_deterministic(tmp_path: Path) -> None:
 def test_dataset_root_env_var_overrides_runtime_config(monkeypatch, tmp_path: Path) -> None:
     """$OSM_DATASET_DIR overrides dataset_root() result for the script."""
     monkeypatch.setenv("OSM_DATASET_DIR", str(tmp_path / "override-dataset"))
-    sfm = _load_sample_for_map_module()
-    assert sfm.DATASET_ROOT == tmp_path / "override-dataset"
-    assert sfm.DATASET_ROOT.name == "override-dataset"
+    assert dataset_root() == tmp_path / "override-dataset"

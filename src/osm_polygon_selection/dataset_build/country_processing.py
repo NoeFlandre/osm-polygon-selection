@@ -24,13 +24,13 @@ from osm_polygon_selection.dataset_build.records import (
 )
 from osm_polygon_selection.dataset_build.records import row_to_record
 from osm_polygon_selection.dataset_build.whitelist import load_whitelist
-from osm_polygon_selection.extract_status import (
+from osm_polygon_selection.stages.status import (
     extract_status as _extract_status,
 )
-from osm_polygon_selection.schema_defs import (
+from osm_polygon_selection.schema import (
     build_schema as _build_package_schema,
 )
-from osm_polygon_selection.streaming_writer import write_jsonl_to_parquet
+from osm_polygon_selection.parquet_write.runner import write_jsonl_to_parquet
 
 
 def process_classified_country(

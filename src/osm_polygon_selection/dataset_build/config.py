@@ -10,8 +10,7 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
-from osm_polygon_selection.paths import dataset_root
-from osm_polygon_selection.runtime_config import RuntimeConfig
+from osm_polygon_selection.config import RuntimeConfig, dataset_root
 
 PIPELINE_VERSION: str = "v0.1.0"
 

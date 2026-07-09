@@ -9,11 +9,9 @@ Two complementary paths:
 
 from __future__ import annotations
 
-from typing import Sequence
-
 import pyarrow as pa
 
-from osm_polygon_selection.schema_defs import build_schema
+from osm_polygon_selection.schema import build_schema
 
 
 def build_columns(
@@ -60,7 +58,7 @@ def build_columns(
     if geometry_encoding == "wkt":
         cols["geometry_wkt"] = [r.get("geometry") for r in rows]
     elif geometry_encoding == "wkb":
-        from osm_polygon_selection.schema_defs import encode_geometry
+        from osm_polygon_selection.schema import encode_geometry
         cols["geometry_wkb"] = [
             encode_geometry(r.get("geometry"), geometry_encoding) for r in rows
         ]
@@ -70,7 +68,7 @@ def build_columns(
 def split_centroid(centroid_col: pa.Array, idx: int) -> pa.Array:
     """Extract a scalar column (lon or lat) from a list<float> column."""
     import pyarrow.compute as pc
-    from osm_polygon_selection.pyarrow_compat import list_element
+    from osm_polygon_selection.io.pyarrow_compat import list_element
     return pc.cast(list_element(centroid_col, idx), pa.float64())
 
 
@@ -121,7 +119,7 @@ def reshape_parsed_table(
         if geometry_encoding == "wkt":
             out["geometry_wkt"] = geom
         else:
-            from osm_polygon_selection.schema_defs import encode_geometry
+            from osm_polygon_selection.schema import encode_geometry
             py_values = geom.to_pylist()
             wkb_values = [encode_geometry(v, geometry_encoding) for v in py_values]
             out["geometry_wkb"] = pa.array(wkb_values, type=pa.binary())

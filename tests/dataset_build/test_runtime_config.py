@@ -22,7 +22,7 @@ from pathlib import Path
 
 import pytest
 
-from osm_polygon_selection.runtime_config import RuntimeConfig, default_data_root
+from osm_polygon_selection.config import RuntimeConfig, default_data_root
 
 
 def test_default_data_root_is_hdd(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -67,20 +67,28 @@ def test_config_from_env(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 def test_import_does_not_access_filesystem(tmp_path: Path) -> None:
-    """Importing the module must not stat or open anything."""
+    """Importing the module must not stat or open anything.
+
+    Verifies the canonical import path. The legacy alias
+    ``osm_polygon_selection.runtime_config`` is tested in
+    ``tests/metadata/test_root_src_inventory.py`` and resolves
+    to the same canonical module.
+    """
     import importlib
     import sys
 
-    # Drop the module if already imported.
-    sys.modules.pop("osm_polygon_selection.runtime_config", None)
+    # Drop the canonical module so we re-import fresh.
+    for k in [
+        "osm_polygon_selection.config.runtime",
+        "osm_polygon_selection.config",
+    ]:
+        sys.modules.pop(k, None)
 
-    # Create a sentinel file inside /tmp; if runtime_config reads it
-    # during import, the test will see the mtime change.
     sentinel = tmp_path / "import-touch"
     sentinel.write_text("0")
     before = sentinel.stat().st_mtime_ns
 
-    importlib.import_module("osm_polygon_selection.runtime_config")
+    importlib.import_module("osm_polygon_selection.config.runtime")
 
     after = sentinel.stat().st_mtime_ns
     assert before == after, "importing runtime_config touched the filesystem"

@@ -56,7 +56,7 @@ def run_sample_for_map(
 
     if ds_root is None:
         # No manifest; use the default dataset_root.
-        from osm_polygon_selection.paths import dataset_root as _default_root
+        from osm_polygon_selection.config import dataset_root as _default_root
         ds_root = _default_root()
 
     total = sum(counts.values())

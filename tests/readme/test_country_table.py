@@ -1,15 +1,25 @@
 """Tests for osm_polygon_selection.country_table.
 
 TDD red phase: written before src/osm_polygon_selection/country_table.py.
+
+The canonical home is :mod:`osm_polygon_selection.readme.tables`; the
+root-level module is a backwards-compat facade.
 """
 
 from __future__ import annotations
 
 from osm_polygon_selection.country_table import build_country_table
+from osm_polygon_selection.readme.tables import build_country_table as build_country_table_canonical
 
 
 def _country(name: str, n: int, status: str = "clean") -> dict:
     return {"country": name, "n_polygons": n, "extract_status": status}
+
+
+def test_canonical_and_facade_produce_identical_output() -> None:
+    """The canonical module and the root facade must agree."""
+    countries = [_country("albania", 1000), _country("france", 5000)]
+    assert build_country_table(countries) == build_country_table_canonical(countries)
 
 
 class TestBuildCountryTable:

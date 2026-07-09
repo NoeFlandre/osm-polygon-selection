@@ -39,9 +39,10 @@ def test_render_map_screenshot_respects_env_override(
     out_png = tmp_path / "custom_preview.png"
     monkeypatch.setenv("OSM_MAP_PREVIEW_PNG", str(out_png))
     monkeypatch.setenv("OSM_REPO_ROOT", str(tmp_path))
-    mod = _load("render_map_screenshot.py")
-    resolved = mod._resolve_out_png()
-    assert resolved == out_png
+    # The logic lives in osm_polygon_selection.operations.screenshot;
+    # the script is a thin launcher.
+    from osm_polygon_selection.operations.screenshot import resolve_output_path
+    assert resolve_output_path() == out_png
 
 
 def test_render_map_screenshot_default_uses_repo_root(
@@ -50,9 +51,8 @@ def test_render_map_screenshot_default_uses_repo_root(
     """Without OSM_MAP_PREVIEW_PNG, default is <OSM_REPO_ROOT>/data/dataset/map_preview.png."""
     monkeypatch.delenv("OSM_MAP_PREVIEW_PNG", raising=False)
     monkeypatch.setenv("OSM_REPO_ROOT", str(tmp_path))
-    mod = _load("render_map_screenshot.py")
-    resolved = mod._resolve_out_png()
-    assert resolved == tmp_path / "data" / "dataset" / "map_preview.png"
+    from osm_polygon_selection.operations.screenshot import resolve_output_path
+    assert resolve_output_path() == tmp_path / "data" / "dataset" / "map_preview.png"
 
 
 def test_process_country_regions_has_no_hardcoded_user_path() -> None:
@@ -81,3 +81,74 @@ def test_operations_scripts_directory_exists() -> None:
     }
     actual = {p.name for p in OPS_DIR.iterdir()}
     assert expected.issubset(actual), f"missing: {expected - actual}"
+
+
+# Wording pin: no agent-era language should leak into operations
+# scripts. These scripts run on the operator's machine; "agent" is
+# not a meaningful term for maintainer documentation.
+FORBIDDEN_OPERATIONS_WORDS = [
+    "agent runtime",
+    "agent call",
+    "agent session",
+    "Codex",
+]
+
+
+@pytest.mark.parametrize("script", [
+    "complete_pipeline.sh",
+    "process_country_regions.py",
+    "render_map_screenshot.py",
+    "run_country.sh",
+    "run_europe.py",
+])
+@pytest.mark.parametrize("forbidden", FORBIDDEN_OPERATIONS_WORDS)
+def test_operations_scripts_have_no_agent_era_wording(
+    script: str, forbidden: str,
+) -> None:
+    """Operations scripts must not contain agent-era wording."""
+    text = (OPS_DIR / script).read_text()
+    assert forbidden not in text, (
+        f"{script} contains agent-era wording {forbidden!r}; "
+        f"operator scripts should use 'operator' / 'interactive session' / "
+        f"'long-running local process' instead."
+    )
+
+
+# Env-var path pin: hard-coded local paths should not leak into
+# operations scripts. The "${VAR:-/path/...}" env-fallback syntax
+# is allowed because it's the documented operator default; any
+# other absolute /Users/ or /Volumes/ mention is a regression.
+def _strip_env_fallbacks(text: str) -> str:
+    """Remove ``${VAR:-/absolute/path}`` and ``${VAR:-default}``
+    occurrences so we can grep for un-overridable absolute paths."""
+    import re
+    return re.sub(r"\$\{[^}]+:-\s*[^}]*\}", "<env-fallback>", text)
+
+
+FORBIDDEN_PATH_PATTERNS = [
+    "/Users/",
+    "/Volumes/",
+]
+
+
+@pytest.mark.parametrize("script", [
+    "complete_pipeline.sh",
+    "process_country_regions.py",
+    "render_map_screenshot.py",
+    "run_country.sh",
+    "run_europe.py",
+])
+@pytest.mark.parametrize("forbidden", FORBIDDEN_PATH_PATTERNS)
+def test_operations_scripts_have_no_machine_specific_paths(
+    script: str, forbidden: str,
+) -> None:
+    """Operations scripts must not contain machine-specific absolute paths.
+
+    Exception: ``${VAR:-/path}`` env-fallback syntax (the operator
+    default). Those are intentional and env-overridable.
+    """
+    text = _strip_env_fallbacks((OPS_DIR / script).read_text())
+    assert forbidden not in text, (
+        f"{script} contains machine-specific path {forbidden!r}; "
+        f"operations scripts must use $OSM_DATA_ROOT / $OSM_REPO_ROOT env vars."
+    )

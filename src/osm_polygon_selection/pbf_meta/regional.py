@@ -10,7 +10,7 @@ sub-regions of a parent country. Used by:
 Both consumers MUST derive from this module so the build skip-list
 and the README regional list cannot drift.
 
-A ``has_extra_keys`` test in tests/test_regional_metadata_in_sync.py
+A ``has_extra_keys`` test in tests/metadata/test_regional_metadata.py
 pins that any country listed here is also listed in both
 ``dataset_build.countries.REGIONAL_CHILDREN`` and
 ``country_notes.REGIONAL_SUB_PBFS``.

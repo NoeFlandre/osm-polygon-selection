@@ -19,7 +19,7 @@ from pathlib import Path
 import pyarrow as pa
 import pyarrow.parquet as pq
 
-from osm_polygon_selection.pyarrow_compat import value_counts
+from osm_polygon_selection.io.pyarrow_compat import value_counts
 
 # Stable bin order (small < medium < large).
 SIZE_BIN_ORDER: tuple[str, ...] = ("small", "medium", "large")

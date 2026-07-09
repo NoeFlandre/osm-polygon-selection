@@ -14,12 +14,10 @@ from __future__ import annotations
 import json
 import osmium
 import shapely.wkt
-from shapely.validation import make_valid  # noqa: F401  (kept for compat)
 
 from osm_polygon_selection.core.geometry_utils import (
     approx_area_km2_lonlat,
     area_km2,
-    is_polygon,  # noqa: F401  (kept for compat)
 )
 from osm_polygon_selection.stages.extract_stage.constants import (
     MAX_AREA_KM2,

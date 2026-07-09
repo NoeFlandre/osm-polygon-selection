@@ -15,20 +15,20 @@ import json
 from datetime import datetime
 from pathlib import Path
 
-from osm_polygon_selection.country_table import build_country_table
-from osm_polygon_selection.git_meta import git_short_sha
+from osm_polygon_selection.readme.tables import build_country_table
+from osm_polygon_selection.config import git_short_sha
 from osm_polygon_selection.pbf_meta import NON_EUROPE_COUNTRIES
 from osm_polygon_selection.readme.templates import (
     ROOT_README_INTRO,
     SPLIT_SECTION_TEMPLATE,
     YAML_FRONTMATTER,
 )
-from osm_polygon_selection.sample_table import (
+from osm_polygon_selection.sample_tables import (
     build_example_row_table,
     build_size_bin_distribution_table,
     compute_global_size_bin_distribution,
 )
-from osm_polygon_selection.schema_defs import (
+from osm_polygon_selection.schema import (
     COLUMN_DESCRIPTIONS,
     COLUMN_TYPES,
 )

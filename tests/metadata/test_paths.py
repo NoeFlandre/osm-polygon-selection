@@ -10,7 +10,7 @@ from pathlib import Path
 
 import pytest
 
-from osm_polygon_selection.paths import (
+from osm_polygon_selection.config import (
     DATASET_ROOT_ENV,
     dataset_root,
     project_root,
