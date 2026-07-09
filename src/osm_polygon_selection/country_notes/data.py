@@ -5,7 +5,7 @@ Auto-restored from the original country_notes.py module.
 
 from __future__ import annotations
 
-from osm_polygon_selection.regional_pbf_meta import (
+from osm_polygon_selection.pbf_meta.regional import (
     REGIONAL_SUB_PBFS_CANONICAL as _REGIONAL_SUB_PBFS_CANONICAL,
 )
 

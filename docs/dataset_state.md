@@ -1,14 +1,19 @@
-# Dataset State (live)
+# Dataset State (Historical Snapshot)
 
-**This document is updated on every commit that changes the dataset.**
+**Historical reference only.** The numbers below were true at the
+time of the 78-country European / African seed snapshot. The
+current published dataset has grown beyond that scope (see the
+top-of-README summary for the latest published numbers). For the
+authoritative counts, consult the published HuggingFace dataset
+manifest.
 
-It captures the current numbers; for *why* or *how*, see the other
-docs in `docs/` (especially `internal/AGENT_HANDOFF.md`, `architecture.md`,
+For *why* or *how*, see the other docs in `docs/`
+(especially `internal/AGENT_HANDOFF.md`, `architecture.md`,
 `PERFORMANCE.md`, `internal/AFRICA_ROLLOUT.md`).
 
 ---
 
-## Current numbers (as of commit pending, 3 July 2026)
+## Historical numbers (78-country snapshot)
 
 | Metric                          | Value             |
 |---------------------------------|------------------:|
@@ -19,7 +24,7 @@ docs in `docs/` (especially `internal/AGENT_HANDOFF.md`, `architecture.md`,
 | HuggingFace files               |              167 |
 | HuggingFace repo                | `NoeFlandre/osm-polygon-selection` |
 
-Breakdown by region:
+Historical breakdown by region:
 
 | Region              | Countries | Polygons |
 |---------------------|----------:|---------:|
@@ -28,12 +33,11 @@ Breakdown by region:
 | Sub-Saharan Africa  |        25 |   90,689 |
 | **Total**           |    **78** | **7,490,239** |
 
-(Approximate continent breakdown; per-country numbers are exact.
-See `dataset/manifest.json` for the machine-readable source.)
+(Approximate continent breakdown; per-country numbers are exact.)
 
 ---
 
-## Coverage (78 countries)
+## Historical coverage (78 countries)
 
 **49 European countries**: albania, andorra, austria, azores,
 belarus, belgium, bosnia-herzegovina, bulgaria, croatia, cyprus,
@@ -53,19 +57,19 @@ rwanda, namibia, swaziland, seychelles, comores,
 sao-tome-and-principe, mauritius, canary-islands,
 saint-helena-ascension-and-tristan-da-cunha.
 
-(See `dataset/manifest.json` for the authoritative list.)
-
 ---
 
 ## Storage
 
 | Location                                | Size    | Notes               |
 |-----------------------------------------|--------:|---------------------|
-| `/Volumes/Seagate M3/osm-polygon-selection/` | ~200 GB | Source of truth     |
-| `/Users/noeflandre/osm-polygon-selection/data/` | <100 MB | Reference data only |
+| `OSM_DATA_ROOT` (maintainer: `/Volumes/Seagate M3/osm-polygon-selection/`) | ~200 GB | Source of truth     |
+| `OSM_DATASET_DIR` (maintainer: `/Volumes/Seagate M3/osm-polygon-selection/dataset/`) | per-build | Final dataset dir |
 
-The pipeline reads PBFs and writes parquet to the HDD only. Never
-to local SSD. See `docs/internal/AGENT_HANDOFF.md` for the storage policy.
+The pipeline reads PBFs and writes parquet to the operator-supplied
+HDD path only. Never to the local SSD. Public users consuming the
+published dataset on Hugging Face do not need these env vars. See
+`docs/internal/AGENT_HANDOFF.md` for the maintainer storage policy.
 
 ---
 
@@ -73,9 +77,9 @@ to local SSD. See `docs/internal/AGENT_HANDOFF.md` for the storage policy.
 
 | Suite                                  | Tests |
 |----------------------------------------|------:|
-| Full suite (without flaky wall-clock)  |  279  |
-| Flaky wall-clock test (deselected)     |    1  |
-| **Total**                              | **281** |
+| Selected passing                       |  505  |
+| Deselected (flaky wall-clock)          |    1  |
+| **Collected**                          | **506** |
 
 Run:
 ```bash
@@ -91,29 +95,17 @@ uv run pytest tests/ \
 (Nigeria 678 MB through Central African Republic 94 MB). Their
 PBFs are downloaded to the HDD but stage 0 was interrupted;
 `processed/<country>/` dirs were cleaned up. See
-`docs/AFRICA_ROLLOUT.md` for the queue and the resume plan.
+`docs/internal/AFRICA_ROLLOUT.md` for the queue and the resume plan.
 
----
-
-## Recent commits
-
-- pending feat(botswana): add Botswana + 29th African country (TDD red-green)
-- `9de694a` feat(mayotte): add Mayotte + 28th African country (TDD red-green)
-- `e251cdb` feat(africa): add 24 African countries + bootstrap full /africa/ support
-- `cec4b7c` feat(algeria): add Algeria + third North-African country
-- `1edc041` perf(make_split): skip per-country parquet rewrites
-- `4320910` feat(tunisia): add Tunisia + second North-African country
-- `7380f95` feat(morocco): add Morocco + non-European country support
-- `0510996` perf(extract): fast lon/lat area pre-filter + C-level vertex count
-- `fd39de2` perf(build_dataset): pa.json C-level parser + zstd compression
-- `2b1b773` perf(build_dataset): streaming JSONL -> parquet writer
+(See git log for recent commits; this section is auto-trimmed to
+the latest quality-uplift history.)
 
 ---
 
 ## How to update this doc
 
-When adding/removing a country, edit the relevant numbers here AND
-the corresponding sections in `README.md`, `AGENT_HANDOFF.md`,
-`PERFORMANCE.md`, `AFRICA_ROLLOUT.md`. The `manifest.json` and the
-auto-generated `dataset/README.md` are the machine-readable sources
-of truth.
+This file is intentionally a historical snapshot. For current
+numbers, see the published HuggingFace dataset manifest and the
+top-of-README summary. The `manifest.json` and the
+auto-generated `dataset/README.md` are the machine-readable
+sources of truth at publication time.

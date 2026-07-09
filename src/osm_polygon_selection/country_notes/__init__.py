@@ -2,8 +2,8 @@
 
 Used by organize_dataset.py to render the per-country READMEs.
 
-The regional map is sourced from regional_pbf_meta (the canonical
-single source of truth). Both this package and
+The regional map is sourced from :mod:`osm_polygon_selection.pbf_meta.regional`
+(the canonical single source of truth). Both this package and
 :mod:`osm_polygon_selection.dataset_build.countries` derive from it,
 so the build skip-list and the README regional list cannot drift.
 
@@ -20,8 +20,8 @@ from osm_polygon_selection.country_notes.notes import (
     country_note,
     country_source_description,
 )
-# Re-export so consumers don't reach into regional_pbf_meta directly.
-from osm_polygon_selection.regional_pbf_meta import (  # noqa: F401
+# Re-export so consumers don't reach into pbf_meta.regional directly.
+from osm_polygon_selection.pbf_meta.regional import (  # noqa: F401
     REGIONAL_SUB_PBFS_CANONICAL,
 )
 

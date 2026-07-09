@@ -130,4 +130,95 @@ Quick summary:
 | Long-form README text    | `readme.templates`                 |
 | Sample-for-map sampling  | `sampling`                         |
 | Streaming JSONL writer   | `parquet_write` (facade: `streaming_writer`) |
-| Stage 0/2/3              | `stages`                           |
+| Train/val/test split     | `dataset_split`                    |
+| Sample-table renderers   | `sample_tables` (facade: `sample_table`) |
+| Stage 0/2/3              | `stages` (stage 0 split into `stages.extract_stage`) |
+| PBF metadata             | `pbf_meta`                         |
+| Curated country notes    | `country_notes`                    |
+
+## Canonical import paths
+
+Each domain owns a subpackage. **Domain packages import from
+their canonical locations, never from a root-level facade.**
+Root-level facades exist only for backwards-compat with existing
+importers; new code should not depend on them.
+
+| Concern                  | Canonical import                          | Backwards-compat facade |
+|--------------------------|-------------------------------------------|-------------------------|
+| PBF metadata             | `osm_polygon_selection.pbf_meta`          | `osm_polygon_selection.pbf_meta` (was a single file) |
+| Regional sub-PBF map     | `osm_polygon_selection.pbf_meta.regional` | `osm_polygon_selection.regional_pbf_meta` |
+| Curated country notes    | `osm_polygon_selection.country_notes`     | (was a single file `country_notes.py`) |
+| Train/val/test split     | `osm_polygon_selection.dataset_split`     | `scripts.make_split` (re-exports `_add_split_column_streaming` / `_write_combined_streaming`) |
+| Sample-table renderers   | `osm_polygon_selection.sample_tables`     | `osm_polygon_selection.sample_table` |
+| Streaming JSONL writer   | `osm_polygon_selection.parquet_write`     | `osm_polygon_selection.streaming_writer` |
+| Stage 0 extract          | `osm_polygon_selection.stages.extract_stage` | `osm_polygon_selection.stages.extract` |
+| README renderers         | `osm_polygon_selection.readme`            | `osm_polygon_selection.readme_render` |
+| Config / runtime paths   | `osm_polygon_selection.runtime_config`, `osm_polygon_selection.paths` | (root modules) |
+
+If you add a new domain module, prefer creating a subpackage
+rather than adding to `src/osm_polygon_selection/<name>.py`.
+
+## Compatibility facades at the src root
+
+Several root-level modules are **thin compatibility facades**
+that re-export symbols from a subpackage. They exist so existing
+imports (`from osm_polygon_selection.<name> import ...`) keep
+working after a refactor splits the module into a subpackage.
+
+Current facades (root-level module → canonical subpackage):
+
+- `streaming_writer.py` → `parquet_write/`
+- `sample_table.py` → `sample_tables/`
+- `readme_render.py` → `readme/`
+- `regional_pbf_meta.py` → `pbf_meta/regional`
+
+When you delete a facade, run the test suite first to surface
+all callers; the canonical subpackage is the only stable
+import path going forward.
+
+## Scripts: public CLI vs internal operation
+
+The `scripts/` directory contains two tiers:
+
+| Path                          | Audience    | Notes |
+|-------------------------------|-------------|-------|
+| `scripts/stage0_extract.py` … `scripts/upload_to_hf.py` | Public | One CLI per pipeline stage. Thin wrappers; no domain logic. |
+| `scripts/sample_for_map.py`   | Public      | Grid-stratified sample. |
+| `scripts/visualize.py`        | Public      | JSONL → interactive folium map. |
+| `scripts/operations/*.py`     | Maintainer  | HDD-only operations (legacy loop driver, sub-region batch, screenshot capture, one-country shortcut). |
+| `scripts/operations/*.sh`    | Maintainer  | Shell shortcuts. Honor `$OSM_DATA_ROOT`. |
+
+Public scripts must be **thin**: parse argv, call a package
+`runner.run_*`, print results. No business logic in the script
+itself. Internal/operational scripts (`scripts/operations/`) may
+have hard-coded maintainer paths that are `$OSM_DATA_ROOT`-
+overridable.
+
+## Generated docs and templates
+
+All README / metadata YAML text lives in `readme.templates`
+(659 LOC of pure template constants). Renderer modules
+(`readme.root`, `readme.folder`, `readme.country`,
+`readme.dataset`, `readme.metadata`) are short (~30-150 LOC)
+and delegate prose to the templates module. Tests under
+`tests/readme/` pin the byte-exact README fixtures; if you
+change prose in `readme.templates`, regenerate the fixtures.
+
+## Adding a new script without root sprawl
+
+1. If the script is a public CLI for a new pipeline stage,
+   put it at `scripts/<name>.py`. Make sure its body is a thin
+   wrapper around a package function.
+2. If the script is a maintainer-only operational tool (sub-region
+   batch, one-country shortcut, screenshot capture), put it at
+   `scripts/operations/<name>.py` or `scripts/operations/<name>.sh`.
+3. If the script needs hard-coded local paths, route them through
+   `$OSM_REPO_ROOT`, `$OSM_DATA_ROOT`, `$OSM_DATASET_DIR`, or
+   `RuntimeConfig` — never machine-specific absolute home-directory
+   paths.
+4. Add a smoke test under `tests/scripts/` that only checks
+   argparse + module import. Don't write tests that depend on
+   a real PBF, browser, or HF token.
+5. If the public docs reference the script, update
+   `docs/architecture.md` (this file) and `README.md`'s
+   Repository layout.

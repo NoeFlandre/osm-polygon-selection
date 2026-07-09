@@ -7,6 +7,12 @@ For each country:
 3. If extract takes too long for a single agent call, save state
    and continue (the WAL is preserved across agent calls).
 4. Once extract is done, run filter + classify (fast).
+
+Env vars:
+- ``OSM_DATA_ROOT``: maintainer HDD root. Default: sibling-of-repo
+  ``osm-polygon-selection`` (via ``RuntimeConfig``).
+- ``OSM_REPO_ROOT``: project root for subprocess ``cwd``. Default:
+  ``Path.cwd().resolve()``.
 """
 
 import json
@@ -15,10 +21,12 @@ import subprocess
 import time
 from pathlib import Path
 
-HDD = Path("/Volumes/Seagate M3/osm-polygon-selection")
+from osm_polygon_selection.runtime_config import RuntimeConfig
+
+HDD = RuntimeConfig.from_env().data_root
 PROC = HDD / "processed"
 RAW = HDD / "raw"
-PROJ = Path("/Users/noeflandre/osm-polygon-selection")
+PROJ = Path(os.environ.get("OSM_REPO_ROOT", Path.cwd().resolve()))
 
 # All European countries, smallest first.
 COUNTRIES = [

@@ -143,9 +143,9 @@ def main() -> int:
                 print(f"  ... and {len(stale) - 30} more")
         return 0
 
-    # Step 1: delete stale files from HF (e.g. all_europe.parquet,
-    # per-country parquets left over from the old "upload files
-    # individually" code path that wrote them to the repo root).
+    # Step 1: delete stale files from HF (e.g. legacy per-country
+    # parquets left over from the old "upload files individually"
+    # code path that wrote them to the repo root).
     n_deleted = 0
     if not args.skip_cleanup:
         n_deleted = _delete_stale(api, args.repo_id, local_rel, args.commit_message)
